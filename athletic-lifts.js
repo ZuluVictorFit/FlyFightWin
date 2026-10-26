@@ -19,7 +19,7 @@ const LOWER={
 const REDUCED=new Set([8,12,16,20,24,28]);
 const PHASES=[[7,8,'Transition'],[9,12,'Strength and power'],[13,16,'New lift cycle'],[17,20,'Strength-speed'],[21,24,'Test preparation'],[25,28,'Maintenance']];
 const phase=w=>(PHASES.find(p=>w>=p[0]&&w<=p[1])||PHASES[PHASES.length-1])[2];
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;':'&quot;','"':'&quot;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const round5=x=>Math.round(x/5)*5;
 function athlete(w){return LOG[w];}
 function sel(w,key,fallback){return (athlete(w).athleticChoice||{})[key]||fallback;}
