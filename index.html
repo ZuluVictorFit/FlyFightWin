@@ -190,5 +190,6 @@ function drawAll(){drawRun();drawPT();drawLift();drawKeep()}
 function paintWho(){document.getElementById("whoZ").setAttribute("aria-pressed",LOG.who==="z");document.getElementById("whoH").setAttribute("aria-pressed",LOG.who==="h");drawAll()}document.getElementById("whoZ").onclick=()=>{LOG.who="z";saveLog();paintWho();syncVdot();render()};document.getElementById("whoH").onclick=()=>{LOG.who="h";saveLog();paintWho();syncVdot();render()};
 loadLog();paintWho();syncVdot();drawLiftTables();render();
 </script>
+<script src="athletic-lifts.js"></script>
 </body>
 </html>
