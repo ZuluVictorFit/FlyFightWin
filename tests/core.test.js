@@ -302,7 +302,7 @@ test("Hannah Week 1 test updates future pace reference unless explicitly pinned"
   );
   assert.equal(
     C.activeReference(d, "h", program.paceDefaults).value,
-    C.vdot(3218.68, 1200),
+    C.vdot(3218.69, 1200),
   );
   const pinned = M.importData(
     d,

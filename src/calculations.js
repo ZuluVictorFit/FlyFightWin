@@ -149,8 +149,8 @@ export function timeFor(d, V) {
 }
 export function pace(V, type) {
   if (!(V > 0)) return null;
-  if (type === "2M") return timeFor(3218.68, V) / 2;
-  const f = { E: 0.7, M: 0.79, T: 0.88, I: 0.98, R: 1.05 }[type];
+  if (type === "2M") return timeFor(3218.69, V) / 2;
+  const f = { E: 0.7, M: 0.84, T: 0.88, I: 0.98, R: 1.05 }[type];
   if (!f) return null;
   const v =
     (-0.182258 + Math.sqrt(0.182258 ** 2 + 4 * 0.000104 * (4.6 + V * f))) /
@@ -187,7 +187,7 @@ export function runReferences(store, a) {
       return [
         {
           id: r.id,
-          value: vdot(3218.68, r.seconds),
+          value: vdot(3218.69, r.seconds),
           date: r.date,
           source: `2-mile test · ${r.date} · ${clock(r.seconds)}`,
         },
