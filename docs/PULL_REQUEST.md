@@ -1,24 +1,18 @@
-Working-set logging previously required separate vertical forms and per-set saves. This change provides one compact spreadsheet per exercise and a single Finish Workout action.
+Running intervals can now be logged directly from Apple Watch's Intervals screen in the existing compact table: **Set | Distance | Avg Pace | HR | ✓**.
 
-- Five columns: Set, Weight, Reps, the relevant RIR/RPE metric, and completion checkmark. Running and carries retain their appropriate time/distance fields. One exercise-level details section exposes alternate effort and individual set metadata.
-- Measured mobile geometry: 48 px rows and a 222 px three-set logging area. All five columns fit at 320 px without horizontal scrolling.
-- Weight, reps and actual effort propagate forward independently within the same exercise, side and top/back-off group. Earlier and finalized rows are protected.
-- Required sets start checked; optional sets start unchecked. Exact reps prefill, and rep ranges start at their prescribed lower bound (for example, 8–10 starts at 8); actual effort and loads remain unfilled. Draft autosave and Undo survive reload and full-backup imports.
-- Finish validates all checked rows before one storage write. Direct corrections retain prior finalized records in revisions. Drafts stay separate from performance history, calculations and completed-workout counts.
+- Distance defaults to miles, with explicit meter support. Pace is entered as M:SS per mile and stored as seconds per mile. Optional HR stays individual; distance and pace propagate only forward into compatible unfinalized intervals.
+- Programmed duration/recovery remain visible and separate from measured results. Actual elapsed time is available in Details, with a directly visible required finish time for two-mile trials. Distance, pace and elapsed time are never recomputed to force agreement.
+- Draft autosave, Undo, atomic Finish Workout, historical revisions and athlete-scoped backups preserve all new fields. Old records and drafts remain compatible. New measurements start blank.
+- No program, schedule, strength/RTS calculation, VDOT formula, current baseline or reference-selection logic changed. No Watch integration service or analytics dashboard was added.
 
-Validation:
+Validation: **70 unit tests passed**, including all prior regressions. The complete browser suite passed all 96 active sessions plus a dedicated sweep of all 48 running sessions for both athletes, the exact Week 1 Tuesday example, meters, time trials/VDOT, independent HR, propagation, reload/Undo, corrections, full backup/restore and scoped imports. Running-screen axe A/AA passed; rows remain 48 px at 320 px and 390 px without horizontal overflow. Supplied private migration fixtures passed outside the repository. The migration test's stale 47.2 expectation was updated to main's already approved 13:43-derived VDOT; application baseline data is unchanged.
 
-- `npm test`: 60 passed; none failed or skipped, including all 47 previous regressions.
-- Complete browser suite: all 96 active sessions rendered and finalized a synthetic working result; every working-set/side editor checked. Mobile 390 px and 320 px, desktop 1440 px, axe WCAG A/AA, backup/import, program snapshots, RTS ranges, legacy storage protection and compact-table interactions passed.
-- Private original exports and newer baselines passed lossless migration tests outside the repository.
-- Approved program data, RTS lookup, calculation module, archive and nutrition page are byte-for-byte unchanged from the approved baseline. No private fixtures are committed.
+[Measurement/storage details](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/watch-interval-logging/docs/RUNNING_LOGGING.md)
 
-Review the [logging behavior](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/COMPACT_LOGGING.md) and [validation details](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/VALIDATION.md).
+Screenshots use synthetic interval values only:
 
-Screenshots contain synthetic QA values only: 80×8, 70×6, 70×6.
+![390 px Watch interval logger](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/watch-interval-logging/docs/screenshots/mobile-watch-intervals-390.png?raw=true)
 
-![390 px mobile compact table](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/screenshots/mobile-compact-table.png?raw=true)
+![320 px Watch interval logger](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/watch-interval-logging/docs/screenshots/mobile-watch-intervals-320.png?raw=true)
 
-![320 px mobile compact table](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/screenshots/mobile-compact-table-320.png?raw=true)
-
-Physical iPhone Safari was not tested; mobile validation uses Chromium emulation. Phone data migration remains a separate user-verified action. No merge or deployment is authorized by this PR.
+Mobile testing used Chromium emulation, not a physical iPhone or Watch. No private records were committed. No merge or deployment is authorized by this PR.

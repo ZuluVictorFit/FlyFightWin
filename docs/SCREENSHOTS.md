@@ -7,6 +7,8 @@ These are actual Chromium renders of the redesigned application. Every displayed
 | Compact mobile table (390 px) | [Three-set table](screenshots/mobile-compact-table.png) |
 | Compact mobile table (320 px) | [Narrow table](screenshots/mobile-compact-table-320.png) |
 | Compact desktop table | [Desktop logging](screenshots/desktop-compact-logging.png) |
+| Watch interval logger (390 px) | [Watch intervals](screenshots/mobile-watch-intervals-390.png) |
+| Watch interval logger (320 px) | [Narrow Watch intervals](screenshots/mobile-watch-intervals-320.png) |
 | Phone workout | [Today](screenshots/mobile-today.png) |
 | Main-lift loading and recorded top set | [Top set/back-offs](screenshots/mobile-main-lift.png) |
 | Accessory set logging | [Accessory](screenshots/mobile-accessory.png) |

@@ -101,6 +101,17 @@ export function validateStore(d) {
             "notes",
           ])
             assert(typeof row[field] === "string", "Invalid draft field");
+          for (const field of [
+            "pace",
+            "averageHr",
+            "distanceUnit",
+            "elapsedTime",
+          ])
+            if (row[field] != null)
+              assert(
+                typeof row[field] === "string",
+                "Invalid running draft field",
+              );
         }
       }
     }
@@ -170,6 +181,40 @@ export function validateStore(d) {
 }
 export function validateSet(r) {
   assert(["done", "skipped"].includes(r.status), "Set status required");
+  if (r.averagePaceSecondsPerMile != null)
+    assert(
+      Number.isInteger(r.averagePaceSecondsPerMile) &&
+        r.averagePaceSecondsPerMile > 0 &&
+        r.averagePaceSecondsPerMile < 6000,
+      "Invalid average pace (seconds per mile)",
+    );
+  if (r.averageHr != null)
+    assert(
+      Number.isInteger(r.averageHr) && r.averageHr >= 20 && r.averageHr <= 300,
+      "Average HR must be a whole number from 20–300 bpm, or blank",
+    );
+  if (r.runMetricsVersion != null) {
+    assert(
+      r.runMetricsVersion === 1 && r.unit === "running",
+      "Invalid running metrics version/unit",
+    );
+    assert(
+      ["mi", "m"].includes(r.distanceUnit),
+      "Running distance unit must be mi or m",
+    );
+    assert(
+      r.distance == null || r.distance > 0,
+      "Actual running distance must be greater than zero, or blank",
+    );
+    assert(
+      r.seconds == null || r.seconds > 0,
+      "Actual elapsed time must be greater than zero, or blank",
+    );
+    assert(
+      r.elapsedTimeSource == null || r.elapsedTimeSource === "recorded",
+      "Invalid elapsed-time source",
+    );
+  }
   for (const k of ["load", "reps", "seconds", "distance", "rpe", "rir"])
     if (r[k] != null) {
       assert(typeof r[k] === "number" && Number.isFinite(r[k]), `Invalid ${k}`);
@@ -197,7 +242,11 @@ export function validateSet(r) {
   assert(r.rpe == null || (r.rpe >= 1 && r.rpe <= 10), "RPE must be 1–10");
   assert(r.rir == null || r.rir <= 10, "RIR must be 0–10");
   assert(
-    r.status === "skipped" || r.reps > 0 || r.seconds > 0 || r.distance > 0,
+    r.status === "skipped" ||
+      r.reps > 0 ||
+      r.seconds > 0 ||
+      r.distance > 0 ||
+      (r.runMetricsVersion === 1 && r.averagePaceSecondsPerMile > 0),
     "Record reps, time or distance before saving",
   );
   assert(

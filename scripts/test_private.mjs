@@ -37,7 +37,11 @@ assert.equal(
 assert.equal(d.records.filter((r) => r.type === "set").length, 5);
 assert.equal(d.records.filter((r) => r.type === "session").length, 0);
 assert.equal(C.runReferences(d, "z").length, 2);
-assert.equal(C.activeReference(d, "z", program.paceDefaults).value, 47.2);
+// Current main's approved 13:43 two-mile reference; imports must not replace it.
+assert.equal(
+  C.activeReference(d, "z", program.paceDefaults).value,
+  44.78627792342048,
+);
 assert.equal(C.activeReference(d, "h", program.paceDefaults).value, null);
 assert.equal(M.importData(d, baseline).added, 0);
 const roundtrip = M.importData(M.fresh(), M.safeParse(JSON.stringify(d))).data;

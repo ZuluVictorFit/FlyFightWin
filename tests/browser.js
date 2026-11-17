@@ -1,3 +1,4 @@
+import { runningBrowser } from "./running-browser.js";
 import { compactBrowser } from "./compact-browser.js";
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
@@ -76,7 +77,11 @@ try {
   console.log("PASS axe WCAG A/AA audit on mobile workout");
   // Ranged reps now prefill their minimum. Explicitly clearing a checked
   // required row must still block Finish without committing history.
-  const firstBenchRep = page.locator('[data-exercise="c1-incline-dumbbell-bench"] .set-row [name="reps"]').first();
+  const firstBenchRep = page
+    .locator(
+      '[data-exercise="c1-incline-dumbbell-bench"] .set-row [name="reps"]',
+    )
+    .first();
   assert.equal(await firstBenchRep.inputValue(), "8");
   await firstBenchRep.fill("");
   await page.locator("#completeSession").click();
@@ -84,7 +89,14 @@ try {
     await page.locator("#notice").innerText(),
     /Record reps, time or distance/,
   );
-  assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem("flyfightwin.log.v3")))).records.length, 0);
+  assert.equal(
+    (
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("flyfightwin.log.v3")),
+      )
+    ).records.length,
+    0,
+  );
   await firstBenchRep.fill("8");
   // Exercise every active session for both athletes and save a synthetic working set.
   let rendered = 0;
@@ -127,13 +139,23 @@ try {
           .locator(
             '[name="' +
               (work[0].kind === "run"
-                ? "seconds"
+                ? "distance"
                 : work[0].prescription.includes("yd")
                   ? "distance"
                   : "reps") +
               '"]',
           )
-          .fill(work[0].kind === "run" ? "300" : "4");
+          .fill(
+            work[0].kind === "run"
+              ? work[0].exerciseId === "2-mile-time-trial"
+                ? "2"
+                : "0.66"
+              : "4",
+          );
+        if (work[0].exerciseId === "2-mile-time-trial")
+          await card
+            .locator('.trial-finish [name="elapsedTime"]')
+            .fill("15:00");
         await finishOnly(form);
         assert.equal(
           await card.locator(".set-row").first().getAttribute("data-finalized"),
@@ -354,6 +376,7 @@ try {
   );
   console.log("PASS RTS half-point effort and uncertainty range save/reload");
   await compactBrowser(browser, base);
+  await runningBrowser(browser, base, program);
   // Isolated first-run migration and archive read-only behavior.
   const privatePage = await context.newPage();
   await privatePage.goto(base);
@@ -425,60 +448,99 @@ try {
   await privatePage.locator('[data-view="Progress"]').click();
   assert.match(await privatePage.locator(".stats").innerText(), /38\.0/);
   await privatePage.close();
-  console.log("PASS updated two-mile pace adoption, future manual override and legacy-key preservation");
+  console.log(
+    "PASS updated two-mile pace adoption, future manual override and legacy-key preservation",
+  );
   // Saved Tuesday performances can retain a historical VDOT, but the live
   // workout targets must use the CURRENT athlete reference in all eight weeks.
-  const paceContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const paceContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
   const pacePage = await paceContext.newPage();
   await pacePage.goto(base);
   await pacePage.waitForSelector(".exercise");
   await pacePage.evaluate((master) => {
     const d = JSON.parse(localStorage.getItem("flyfightwin.log.v3"));
     d.settings["pace:z"] = "program";
-    for (const session of master.sessions.filter((s) => s.athlete === "z" && s.day === "Tuesday")) {
+    for (const session of master.sessions.filter(
+      (s) => s.athlete === "z" && s.day === "Tuesday",
+    )) {
       const work = session.exercises.find((e) => e.kind === "run" && !e.warmup);
       const snapshot = structuredClone(session);
-      if (session.week <= 2) snapshot.exercises.find((e) => e.id === work.id).intensity = "T (VDOT 47.2)";
+      if (session.week <= 2)
+        snapshot.exercises.find((e) => e.id === work.id).intensity =
+          "T (VDOT 47.2)";
       d.records.push({
         id: `set:${session.id}:${work.id}:0`,
-        type: "set", athlete: "z", sessionId: session.id,
-        exerciseId: work.exerciseId, variant: work.exerciseId,
-        slot: 0, side: "", unit: "running", distanceUnit: "mi",
-        status: "done", seconds: 300, date: "2026-11-01",
+        type: "set",
+        athlete: "z",
+        sessionId: session.id,
+        exerciseId: work.exerciseId,
+        variant: work.exerciseId,
+        slot: 0,
+        side: "",
+        unit: "running",
+        distanceUnit: "mi",
+        status: "done",
+        seconds: 300,
+        date: "2026-11-01",
         paceReference: { value: 47.2, source: "historical logged pace" },
       });
-      if (session.week <= 2) d.records.push({
-        id: `session:${session.id}`, type: "session", athlete: "z",
-        sessionId: session.id, status: "started", date: "2026-11-01",
-        programVersion: master.id, blockId: master.blockId,
-        prescriptionSnapshot: snapshot,
-      });
+      if (session.week <= 2)
+        d.records.push({
+          id: `session:${session.id}`,
+          type: "session",
+          athlete: "z",
+          sessionId: session.id,
+          status: "started",
+          date: "2026-11-01",
+          programVersion: master.id,
+          blockId: master.blockId,
+          prescriptionSnapshot: snapshot,
+        });
     }
     localStorage.setItem("flyfightwin.log.v3", JSON.stringify(d));
   }, program);
-  const originalPaceRecords = await pacePage.evaluate(() =>
-    JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records
+  const originalPaceRecords = await pacePage.evaluate(
+    () => JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records,
   );
   await pacePage.reload();
   await pacePage.waitForSelector(".exercise");
   for (let w = 1; w <= 8; w++) {
     await pacePage.selectOption("#week", String(w));
     await pacePage.locator('[data-day="Tuesday"]').click();
-    const card = pacePage.locator("section.card").filter({ hasText: "Active pace reference" });
-    assert.equal(await card.locator("h2").innerText(), "VDOT 44.8", `week ${w}`);
-    assert.doesNotMatch(await pacePage.locator("#content").innerText(), /VDOT 47\.2/, `week ${w}`);
+    const card = pacePage
+      .locator("section.card")
+      .filter({ hasText: "Active pace reference" });
+    assert.equal(
+      await card.locator("h2").innerText(),
+      "VDOT 44.8",
+      `week ${w}`,
+    );
+    assert.doesNotMatch(
+      await pacePage.locator("#content").innerText(),
+      /VDOT 47\.2/,
+      `week ${w}`,
+    );
     const paces = await pacePage.locator(".compact-target").allInnerTexts();
     if (w < 8) assert.ok(paces.length > 0, `week ${w} has live running paces`);
     // Week 8 is the two-mile time trial and has no prescribed interval pace.
   }
   assert.deepEqual(
-    await pacePage.evaluate(() => JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records),
-    originalPaceRecords
+    await pacePage.evaluate(
+      () => JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records,
+    ),
+    originalPaceRecords,
   );
   await pacePage.locator('[data-athlete="h"]').click();
-  assert.match(await pacePage.locator("#content").innerText(), /Baseline pending/);
+  assert.match(
+    await pacePage.locator("#content").innerText(),
+    /Baseline pending/,
+  );
   await paceContext.close();
-  console.log("PASS current 44.8 VDOT on all Zack Tuesdays despite historical 47.2 snapshots; records and Hannah unchanged");
+  console.log(
+    "PASS current 44.8 VDOT on all Zack Tuesdays despite historical 47.2 snapshots; records and Hannah unchanged",
+  );
   assert.deepEqual(errors, []);
   console.log("PASS no application JavaScript errors");
 } finally {

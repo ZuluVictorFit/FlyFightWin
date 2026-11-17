@@ -21,6 +21,7 @@ npm run test:browser
 - `data/program.json`: one validated program master, with all 96 active athlete sessions, 16 rest days, 566 exercise rows, six source overview pages and the source PDF SHA-256. Each row retains source wording, grouping, order, rest, optional status and load metadata.
 - `src/program.js`: runtime schema/integrity validation. `scripts/extract_program.py` reconstructs program rows from PDF coordinates using PyMuPDF; `scripts/audit_pdf.py` independently verifies every cell with pdfplumber. Python extraction packages are authoring tools only, not application dependencies.
 - `src/model.js`: versioned local storage, validated non-destructive imports, athlete-scoped merges, retained conflicts, checkpoints, optimistic stale-tab detection and edit revisions. `src/calculations.js`: pure load, progression and VDOT calculations.
+- `src/running.js`: strict pace/elapsed-time parsing and presentation for [Watch interval logging](docs/RUNNING_LOGGING.md); no VDOT or performance inference.
 - `src/drafts.js`: forward-only field propagation, draft autosave/Undo and atomic Finish Workout. Drafts stay separate from finalized records. See [compact logging](docs/COMPACT_LOGGING.md).
 - `src/app.js`: native browser module rendering Today, Plan, Progress and History. No runtime dependencies, external fonts, analytics or network data transmission.
 - `legacy.html` and existing `athletic-lifts.js`: original 28-week archive; old local records remain readable without writes to the legacy keys. `kitchen.html`: preserved nutrition content, recolored.
