@@ -615,7 +615,7 @@ window.addEventListener("storage", (e) => {
     notify("Data changed in another tab. Reload before editing.");
 });
 try {
-  program = validateProgram(await (await fetch("data/program.json")).json());
+  program = validateProgram(await (await fetch("data/program.json", { cache: "no-store" })).json());
   store = M.readStore(localStorage);
   expected = localStorage.getItem(M.KEY);
   const aligned = M.adoptPaceRevision(store, program.paceDefaults);
