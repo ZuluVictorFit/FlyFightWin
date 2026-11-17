@@ -1,0 +1,23 @@
+# Move both phones safely
+
+Do these steps after the reviewed version is eventually released at the same GitHub Pages address. This PR does not deploy it. Preview URLs, different browsers, private browsing and home-screen contexts can have separate storage; do not assume records follow between them.
+
+1. **Before updating either phone:** open the existing app in the browser normally used for training. Export its JSON from Log → Backup. Save separately as Zack-phone-original and Hannah-phone-original in a private Files folder. Keep the supplied original exports as additional copies. Do not clear website data.
+2. Open the new application in that same browser and origin on each phone. First run copies `blueline.log.v2` into `flyfightwin.log.v3`, retaining the original key and `blueline3`. No historical workout is marked complete. If migration fails, the recovery screen downloads raw stored data; do not clear storage to make the error disappear.
+3. On one phone, open **History → Backup & restore**. Export a full v3 backup first. Import Zack's original export with **Zack only**, then Hannah's original export with **Hannah only**. Alternatively import the supplied combined backup with **Both athletes**. Inspect the preview, choose **Back up & merge**, and save the automatic before-import download. Repeating an import does not duplicate matching records.
+4. Import the supplied newer baseline JSON with **Both athletes**. It stays private in this browser and exported backups. Only explicitly recorded sets become history; unknown counts/reps, estimates, equipment and nonmaximal running observations remain provenance records. They do not complete any new-block workout. Review these under History → Original details.
+5. If conflicts appear, compare **Current** and **Incoming** and choose deliberately. Current values remain active until resolved. Both versions remain in the backup, along with original import envelopes and prior edits. Per-athlete selection limits active-record merging; original backup envelopes are retained in full for recovery, so exported backups may contain both athletes' private data.
+6. Check Zack and Hannah separately in History and Progress. Confirm both running test histories are present. Select the desired pace reference explicitly; Zack initially retains PDF 47.2 and Hannah awaits her Week 1 two-mile result. Imported legacy tests are not a newly completed Week 1 test.
+7. Export the consolidated v3 backup and transfer it privately to the other phone using Files/AirDrop or another trusted channel. Import it there with Both athletes, resolve differences, and verify again. Export from that phone and merge back if it contained additional activity. There is **no automatic synchronization**. Repeat this exchange after independent logging; do not simply replace one device's data.
+8. In Plan, select the actual Monday start date. Dates schedule the plan only. Actual performed dates belong to individual records and can be edited independently. In Today, choose the correct athlete before logging.
+
+## Rollback and corrections
+
+- **Undo last import / restore** swaps the current store with the latest browser checkpoint, first exporting the current store and retaining it as the next checkpoint. Save the download. This checkpoint is one level; older full exports provide longer-term recovery.
+- Set edits retain prior versions in the full backup. Import an older v3 export to review conflicting versions without silently overwriting current values.
+- The original `blueline.log.v2` and `blueline3` remain untouched. `legacy.html` displays the original 28-week program and original browser history through a read-only storage adapter. Changes made inside that archive are temporary. Imported legacy records are also visible in the new History screen.
+- To return completely to the old application after a code rollback, use the original keys or original phone export. New v3 sets cannot be represented fully in the old v2 format; retain the v3 backup for later restoration.
+- Browser storage is not a durable backup. Export regularly, especially before clearing Safari data, changing phones, changing browsers, or changing the Pages origin. Storage errors stop saving and display an error; a failed save is not success.
+- Avoid editing simultaneously in multiple tabs. The app detects stale writes and asks you to reload while retaining the visible inputs. Record those inputs before reloading. Close unused tabs before imports.
+
+Backups contain private training data. Keep them out of Git, public issues, PR comments and shared screenshots. No private authentication service or Apple Health integration is present.
