@@ -6,9 +6,10 @@
   "changeHistory": [],
   "paceDefaults": {
     "z": {
-      "value": 47.2,
-      "source": "Approved PDF \u00b7 VDOT 47.2; choose a historical test explicitly.",
-      "autoNewTests": false
+      "value": 44.78627792342048,
+      "source": "Two-mile result: 13:43; VDOT 44.79 (test date not recorded).",
+      "autoNewTests": false,
+      "referenceRevision": "z-two-mile-baseline-2026-11"
     },
     "h": {
       "value": null,
@@ -632,7 +633,7 @@
           "sets": 3,
           "setsText": "3",
           "prescription": "3 x 5 min",
-          "intensity": "T (VDOT 47.2)",
+          "intensity": "T (current VDOT)",
           "rest": "75 sec easy jog",
           "warmup": false,
           "optional": false,
@@ -2493,7 +2494,7 @@
           "sets": 3,
           "setsText": "3",
           "prescription": "3 x 6 min",
-          "intensity": "T (VDOT 47.2)",
+          "intensity": "T (current VDOT)",
           "rest": "75 sec easy jog",
           "warmup": false,
           "optional": false,

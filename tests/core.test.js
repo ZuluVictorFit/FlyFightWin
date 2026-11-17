@@ -284,8 +284,38 @@ test("VDOT calculation preserved; ordinary runs never replace a reference", () =
     M.fresh(),
     row({ exerciseId: "long-easy-run", seconds: 3600, distance: 10 }),
   );
-  assert.equal(C.activeReference(d, "z", program.paceDefaults).value, 47.2);
+  assert.ok(Math.abs(C.activeReference(d, "z", program.paceDefaults).value - C.vdot(3218.69, 823)) < 1e-10);
   assert.equal(C.runReferences(d, "z").length, 0);
+});
+test("Zack's approved 13:43 two-mile result supersedes the old pace reference safely", () => {
+  const expectedVdot = C.vdot(3218.69, 13 * 60 + 43);
+  assert.ok(Math.abs(expectedVdot - 44.78627792342048) < 1e-10);
+  assert.ok(Math.abs(program.paceDefaults.z.value - expectedVdot) < 1e-10);
+  assert.equal(C.activeReference(M.fresh(), "z", program.paceDefaults).value, expectedVdot);
+  assert.equal(program.paceDefaults.h.value, null);
+  for (const w of [1, 2]) {
+    const interval = s(w, "Tuesday", "z").exercises.find((e) => e.group === "WORK");
+    assert.equal(interval.intensity, "T (current VDOT)");
+  }
+  const original = M.importData(M.fresh(), legacy({
+    tt: { 4: { v: 47.2, s: 420 } },
+  })).data;
+  original.settings["pace:z"] = "legacy:z:tt:4";
+  original.settings["pace:h"] = "untouched-hannah-reference";
+  const before = M.canonical(original.records);
+  const updated = M.adoptPaceRevision(original, program.paceDefaults);
+  assert.equal(updated.settings["pace:z"], "program");
+  assert.equal(updated.settings["pace:z:previousChoice"], "legacy:z:tt:4");
+  assert.equal(updated.settings["pace:z:referenceRevision"], program.paceDefaults.z.referenceRevision);
+  assert.equal(updated.settings["pace:h"], "untouched-hannah-reference");
+  assert.equal(C.activeReference(updated, "z", program.paceDefaults).value, expectedVdot);
+  assert.equal(M.canonical(updated.records), before);
+  assert.equal(M.adoptPaceRevision(updated, program.paceDefaults), updated);
+  const manual = M.clone(updated);
+  manual.settings["pace:z"] = "legacy:z:tt:4";
+  assert.equal(C.activeReference(manual, "z", program.paceDefaults).value, 47.2);
+  assert.equal(M.adoptPaceRevision(manual, program.paceDefaults), manual);
+  M.validateStore(updated);
 });
 test("Hannah Week 1 test updates future pace reference unless explicitly pinned", () => {
   let d = M.fresh();
