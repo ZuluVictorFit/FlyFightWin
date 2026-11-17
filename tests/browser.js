@@ -395,6 +395,9 @@ try {
   );
   // A browser pinned to a historical mile value must adopt the newly approved
   // two-mile baseline exactly once, without rewriting any training records.
+  // Seed the real origin, not the legacy.html read-only storage adapter.
+  await privatePage.goto(base);
+  await privatePage.waitForSelector(".exercise");
   await privatePage.evaluate(() => {
     const d = JSON.parse(localStorage.getItem("flyfightwin.log.v3"));
     d.settings["pace:z"] = "legacy:z:tt:4";
