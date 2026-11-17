@@ -1,7 +1,8 @@
+import * as D from "./drafts.js";
 import { rtsEstimate } from "./rts.js";
 import * as M from "./model.js";
 import * as C from "./calculations.js";
-import { validateProgram, effectiveSession, sessionRecord } from "./program.js";
+import { validateProgram, effectiveSession } from "./program.js";
 const $ = (s) => document.querySelector(s),
   esc = (v) =>
     String(v ?? "").replace(
@@ -74,7 +75,7 @@ const recs = (s) =>
   store.records.filter(
     (r) => r.type === "set" && r.sessionId === s.id && r.athlete === athlete,
   );
-const setId = (s, e, slot) => `set:${s.id}:${e.id}:${slot.key}`;
+const setId = D.setId;
 const increment = (e) =>
   store.settings[`step:${athlete}:${e.exerciseId}`] ||
   (e.loadUnit === "lb per hand" ? 2.5 : 5);
@@ -90,7 +91,7 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function field(name, label, value = "", type = "number", attrs = "") {
-  return `<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value ?? "")}" ${type === "number" ? 'inputmode="decimal" step="any"' : ""} ${attrs}></label>`;
+  return `<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value ?? "")}" ${type === "number" ? `inputmode="decimal" ${/\bstep=/.test(attrs) ? "" : 'step="any"'}` : ""} ${attrs}></label>`;
 }
 function render() {
   $(".brand span").textContent =
@@ -112,7 +113,7 @@ function workout() {
   const s = session(),
     saved = recs(s),
     done = saved.filter((r) => r.status === "done").length;
-  return `<section class="workout-head"><p class="eyebrow">Week ${String(week).padStart(2, "0")} / ${day} · ${athlete === "z" ? "Zack" : "Hannah"}</p><h1>${esc(s.title)}</h1><div class="meta"><span>${dateFor(s) || "Undated block"}</span><span>·</span><span>${M.sessionStatus(store, s, dateFor(s))}</span><span>·</span><span>${done} sets recorded</span>${s.reduced ? '<span class="tag">Reduced volume</span>' : ""}</div>${s.exercises.length ? `<div class="actions"><button id="startSession">Start session</button><button id="completeSession" class="primary">Complete session</button></div>` : ""}<p class="hint">${esc(s.note)}</p>${store.records.find((r) => r.type === "session" && r.sessionId === s.id)?.programVersion && store.records.find((r) => r.type === "session" && r.sessionId === s.id).programVersion !== program.id ? '<p class="warning">Saved session prescription retained from an earlier program revision. Updates apply to unstarted sessions.</p>' : ""}</section>
+  return `<section class="workout-head"><p class="eyebrow">Week ${String(week).padStart(2, "0")} / ${day} · ${athlete === "z" ? "Zack" : "Hannah"}</p><h1>${esc(s.title)}</h1><div class="meta"><span>${dateFor(s) || "Undated block"}</span><span>·</span><span>${M.sessionStatus(store, s, dateFor(s))}</span><span>·</span><span>${done} sets recorded</span>${s.reduced ? '<span class="tag">Reduced volume</span>' : ""}</div>${s.exercises.length ? `<div class="actions"><button id="undoDraft" ${store.drafts?.[s.id]?.undo.length ? "" : "disabled"}>Undo draft edit</button><button id="completeSession" class="primary">Finish Workout</button></div>` : ""}<p id="draftStatus" class="hint" role="status">${store.drafts?.[s.id] ? "Draft saved on this browser." : "Edits autosave as drafts."} Review checked sets before Finish Workout; unchecked required sets are recorded as skipped. Undo applies to draft edits.</p><p class="hint">${esc(s.note)}</p>${(store.records.find((r) => r.type === "session" && r.sessionId === s.id)?.programVersion || store.drafts?.[s.id]?.programVersion || program.id) !== program.id ? '<p class="warning">Saved session prescription retained from an earlier program revision. Updates apply to unstarted sessions.</p>' : ""}</section>
  ${s.restDay ? '<section class="card"><h2>Make room for recovery.</h2><p>Off. No makeup sessions.</p></section>' : ""}
  ${s.exercises.some((e) => e.kind === "run" && !e.warmup) ? paceCard() : ""}
  ${s.exercises.map((e) => exercise(s, e)).join("")}<p class="provenance">Approved program · ${esc(s.approvalSource || `PDF page ${s.sourcePage}`)} · ${esc(store.records.find((r) => r.type === "session" && r.sessionId === s.id)?.programVersion || program.id)}</p>`;
@@ -122,6 +123,12 @@ function paceCard() {
     recs(session()).find((r) => r.paceReference)?.paceReference ||
     C.activeReference(store, athlete, program.paceDefaults);
   return `<section class="card"><p class="eyebrow">Active pace reference</p><h2>${ref.value ? `VDOT ${ref.value.toFixed(1)}` : "Baseline pending"}</h2><p class="hint">${esc(ref.source)}</p>${ref.value ? `<div class="meta">${["E", "T", "I", "R", "2M"].map((t) => `<span>${t} ${C.clock(C.pace(ref.value, t))}/mi</span>`).join("")}</div>` : ""}<p class="hint">Effort and the prescribed recovery govern. Nonmaximal runs never update VDOT. Choose or pin a reference in Progress.</p></section>`;
+}
+function effortField(e) {
+  return e.rir != null ? "rir" : "rpe";
+}
+function slotLabel(e, slot) {
+  return `${e.top ? (slot.index === 0 ? "Top" : `B${slot.index}`) : slot.index + 1}${slot.side ? ` ${slot.side}` : ""}`;
 }
 function exercise(s, e) {
   if (e.warmup)
@@ -133,8 +140,10 @@ function exercise(s, e) {
     last = C.matchedHistory(store, athlete, e.exerciseId, e.loadUnit)
       .filter((r) => r.sessionId !== s.id)
       .at(-1),
-    load = C.loading(store, athlete, e, increment(e));
-  const paceRef =
+    load = C.loading(store, athlete, e, increment(e)),
+    primary =
+      e.top || /^(Hang power clean|Push press|DB push press)$/.test(e.name),
+    paceRef =
       recs(s).find((r) => r.paceReference)?.paceReference ||
       C.activeReference(store, athlete, program.paceDefaults),
     paceType =
@@ -142,54 +151,132 @@ function exercise(s, e) {
         ? /Current 2-mile/.test(e.intensity)
           ? "2M"
           : e.intensity.match(/^([ETIR])(?:[ ;(]|$)/)?.[1]
-        : null;
-  const top = rows.find(
-      (r) =>
-        r.slot === 0 &&
-        r.status === "done" &&
-        r.variant === e.exerciseId &&
-        r.unit === e.loadUnit,
-    ),
-    back = C.backoff(top?.load, e, increment(e));
-  const lastSession = last
-    ? C.matchedHistory(store, athlete, e.exerciseId, e.loadUnit).filter(
-        (r) => r.sessionId === last.sessionId,
-      )
-    : [];
-  return `<section class="card exercise" data-exercise="${esc(e.id)}"><div class="exercise-heading"><span class="group">${e.group}</span><div><h2>${esc(e.name)}</h2><small>${e.optional ? "Optional · only if recovered" : "Working sets"}${e.unilateral ? " · record left and right separately" : ""}</small></div></div><p class="prescription">${e.top || /\d+\s*x\s*\d/.test(e.prescription) ? "" : `${e.sets} × `}${esc(e.prescription)}</p><p class="hint">${esc(e.intensity)} · Rest: ${esc(e.rest)}</p>
- ${paceType && paceRef.value ? `<div class="target"><strong>${paceType} · ${C.clock(C.pace(paceRef.value, paceType))}/mi</strong><p>From active reference: ${esc(paceRef.source)}</p></div>` : ""}
- ${e.device ? '<p class="warning">Verify this mode and firmware on your device. Record its own setting; simulated yards/resistance are not equivalent to a physical sled. No replacement is assumed.</p>' : ""}
- ${/heavy sandbag front/.test(e.name) ? '<p class="warning">Equipment review: confirm an appropriate heavy front-carry implement before this exercise. Do not substitute a light bag or a different implement silently.</p>' : ""}
- ${/Leg press/.test(e.name) && athlete === "h" ? '<p class="hint">Equipment may be unavailable at home. This finisher remains optional.</p>' : ""}
- ${e.top || /^(Hang power clean|Push press|DB push press)$/.test(e.name) ? `<div class="target"><strong>${load.range ? `${load.range.join("–")} ${e.loadUnit} suggested` : "RPE-guided ramp"}</strong>${load.band ? `<p>Initial fallback band ${load.band.join("–")}% of unadjusted Epley e1RM${load.referenceRange ? `: ${load.referenceRange.join("–")} lb from the unadjusted Epley estimate (~${Math.round(load.max)} lb). Fallback reference only; RTS guidance above takes priority.` : ""} · RPE cap ${e.rpeCap} takes priority</p>` : ""}<p>${esc(load.source)}</p>${e.top ? `<p><b>Back-offs:</b> ${back ? `${back.join("–")} lb from saved top set (${top.load} lb)` : `Pending actual top set · ${e.top.backPercent.join("–")}% of actual top weight`}</p>` : ""}</div>` : ""}
- <details class="log" ${e.top ? "open" : ""}><summary>Log sets <small>· ${rows.length}/${all.length} recorded or skipped</small></summary><p class="hint">Targets above are planned. Fields below are actual results; nothing is filled automatically.</p>${all.map((slot) => setForm(s, e, slot)).join("")}</details>
- ${e.kind === "strength" ? `<details><summary>Load increment & progression</summary><label>Available increment (${esc(e.loadUnit)})<input data-increment="${esc(e.exerciseId)}" type="number" min="0.25" step="0.25" value="${increment(e)}"></label><p class="hint">${esc(C.doubleProgression(e, rows.length ? rows.filter((r) => r.variant === e.exerciseId && r.unit === e.loadUnit) : lastSession, increment(e)))}</p></details>` : ""}
- <div class="last">${last ? `Last matched variant · ${esc(last.date)} · ${last.load ?? "—"} ${esc(last.unit)} × ${last.reps ?? "—"} · RIR ${last.rir ?? "unknown"}` : "No recorded history for this exact variant yet."}</div></section>`;
+        : null,
+    lastSession = last
+      ? C.matchedHistory(store, athlete, e.exerciseId, e.loadUnit).filter(
+          (r) => r.sessionId === last.sessionId,
+        )
+      : [],
+    run = e.kind === "run",
+    distance = !run && e.prescription.includes("yd"),
+    effort = effortField(e);
+  return `<section class="card exercise" data-exercise="${esc(e.id)}">
+    <header class="compact-heading"><h2><span class="exercise-group">${esc(e.group)}</span>${esc(e.name)}${e.optional ? '<small class="optional-label">Optional</small>' : ""}</h2>
+      <p class="prescription">${e.top || /\d+\s*x\s*\d/.test(e.prescription) ? "" : `${e.sets} × `}${esc(e.prescription)}</p>
+      <p class="intensity">${esc(e.intensity)} · Rest ${esc(e.rest)}</p></header>
+    ${paceType && paceRef.value ? `<p class="compact-target">${paceType} · ${C.clock(C.pace(paceRef.value, paceType))}/mi</p>` : ""}
+    ${e.device ? '<p class="warning">Verify mode, firmware and anchor. Record device settings; simulated yards are not physical sled distances.</p>' : ""}
+    ${/heavy sandbag front/.test(e.name) ? '<p class="warning">Confirm an appropriate heavy front-carry implement. Do not silently substitute a light bag or another implement.</p>' : ""}
+    ${/Leg press/.test(e.name) && athlete === "h" ? '<p class="hint">Equipment may be unavailable at home. This finisher remains optional.</p>' : ""}
+    ${primary ? `<div class="target compact-target"><strong>${load.range ? `${load.range.join("–")} ${e.loadUnit} suggested` : "RPE-guided ramp"}${e.rpeCap ? ` · cap ${e.rpeCap}` : ""}</strong>${e.top ? `<p><b>Back-offs:</b> <span class="backoff-target">${esc(backoffText(s, e))}</span></p>` : ""}</div>` : ""}
+    <div class="logging-area"><table class="set-table" aria-label="${esc(e.name)} working sets">
+      <colgroup><col class="col-set"><col><col class="col-reps"><col class="col-effort"><col class="col-check"></colgroup>
+      <thead><tr><th scope="col">Set</th><th scope="col">${run ? "Time · s" : `Weight<small>${esc(e.loadUnit)}</small>`}</th><th scope="col">${run ? `Dist · ${/\bm\b/.test(e.prescription) ? "m" : "mi"}` : distance ? "Yards" : /sequences/.test(e.prescription) ? "Seq" : "Reps"}</th><th scope="col">${effort.toUpperCase()}</th><th scope="col"><span aria-hidden="true">✓</span><span class="sr-only">Completed</span></th></tr></thead>
+      <tbody>${all.map((slot) => setRow(s, e, slot)).join("")}</tbody></table>
+      <details class="exercise-details"><summary>Details & other effort</summary>
+        <p class="hint">${rows.length}/${all.length} finalized or skipped. Check only completed work before Finish Workout. Exact reps are prefilled; effort is actual, optional and never assumed. A direct edit to a finalized set is a pending correction; the old result remains in history until Finish, and its prior version is retained.</p>
+        <label>Details for set<select class="advanced-slot">${all.map((slot) => `<option value="${slot.key}">${slotLabel(e, slot)}</option>`).join("")}</select></label>
+        <div class="advanced-editor">${advancedFields(s, e, all[0])}</div>
+        ${primary ? `<div class="loading-explanation">${load.band ? `<p class="hint">Initial fallback band ${load.band.join("–")}% of unadjusted Epley e1RM${load.referenceRange ? `: ${load.referenceRange.join("–")} lb from the unadjusted estimate (~${Math.round(load.max)} lb). Fallback reference only; RTS takes priority.` : ""} · RPE cap ${e.rpeCap} takes priority.</p>` : ""}<p class="hint">${esc(load.source)}</p></div>` : ""}
+        ${paceType && paceRef.value ? `<p class="hint">Pace reference: ${esc(paceRef.source)}</p>` : ""}
+        ${e.kind === "strength" ? `<label>Available increment (${esc(e.loadUnit)})<input data-increment="${esc(e.exerciseId)}" type="number" min="0.25" step="0.25" value="${increment(e)}"></label><p class="hint">${esc(C.doubleProgression(e, rows.length ? rows.filter((r) => r.variant === e.exerciseId && r.unit === e.loadUnit) : lastSession, increment(e)))}</p>` : ""}
+        <p class="hint">${last ? `Last matched variant · ${esc(last.date)} · ${last.load ?? "—"} ${esc(last.unit)} × ${last.reps ?? "—"} · RIR ${last.rir ?? "unknown"}` : "No recorded history for this exact variant yet."}</p>
+      </details></div></section>`;
 }
-function setForm(s, e, slot) {
-  const r = store.records.find((r) => r.id === setId(s, e, slot)) || {},
-    isRun = e.kind === "run",
-    isDistance = !isRun && e.prescription.includes("yd"),
-    distanceUnit = isRun ? (/\bm\b/.test(e.prescription) ? "m" : "mi") : "yd";
-  return `<form class="set-form" data-e="${esc(e.id)}" data-slot="${slot.key}"><div class="set-head"><b>${e.top ? (slot.index === 0 ? "Top set" : `Back-off ${slot.index}`) : `Set ${slot.index + 1}`}${slot.side ? " · " + slot.side : ""}</b><span>${r.status ? esc(r.status) + " · saved" : "Not recorded"}</span></div><div class="fields">${isRun ? field("seconds", "Time (seconds)", r.seconds, "number", 'min="0"') + field("distance", `Distance (${distanceUnit})`, r.distance, "number", 'min="0"') + field("rpe", "RPE · optional", r.rpe, "number", 'min="1" max="10"') : isDistance ? field("load", e.loadUnit, r.load) + field("distance", e.device ? "Simulated yards" : "Yards", r.distance, "number", 'min="0"') + field("rpe", "RPE", r.rpe, "number", 'min="1" max="10"') : field("load", e.loadUnit, r.load) + field("reps", /sequences/.test(e.prescription) ? "Sequences" : "Reps", r.reps, "number", 'min="0" step="1"') + field("rir", "RIR · optional", r.rir, "number", 'min="0" max="10"')}</div>
- <details><summary>Effort, variant & notes</summary><div class="fields two">${!isRun ? (isDistance ? field("reps", "Reps", r.reps, "number", 'min="0"') + field("rir", "RIR", r.rir, "number", 'min="0" max="10"') : field("rpe", "RPE", r.rpe, "number", 'min="1" max="10"')) + field("seconds", "Time (seconds)", r.seconds, "number", 'min="0"') + (isDistance ? "" : field("distance", `Distance (${distanceUnit}${e.device ? " simulated" : ""})`, r.distance, "number", 'min="0"')) : ""}${field("date", "Performed date", r.date || today(), "date", "required")}${
-   !isRun
-     ? `<label>Load unit<select name="unit">${[
-         e.loadUnit,
-         "lb total",
-         "lb per hand",
-         "lb added / assistance",
-         "device setting",
-         "bodyweight",
-       ]
-         .filter((v, i, a) => a.indexOf(v) === i)
-         .map(
-           (v) =>
-             `<option ${v === (r.unit || e.loadUnit) ? "selected" : ""}>${v}</option>`,
-         )
-         .join("")}</select></label>`
-     : ""
- }</div>${!isRun ? `<div class="fields two">${field("rpeLow", "Actual RPE range · low", r.rpeRange?.[0], "number", 'min="1" max="10" step="0.5"')}${field("rpeHigh", "Actual RPE range · high", r.rpeRange?.[1], "number", 'min="1" max="10" step="0.5"')}</div><p class="hint">Use one actual RPE or a range. Leave both blank if effort was not recorded.</p>` : ""}${field("variant", "Actual variant (different variants stay separate)", r.variant || e.exerciseId, "text", "required")}${e.device ? field("deviceMode", "Device mode / firmware (as displayed)", r.deviceMode, "text") : ""}<label>Notes / quality / reason skipped<textarea name="notes">${esc(r.notes)}</textarea></label></details><div class="actions"><button class="primary" type="submit" name="status" value="done">${r.status ? "Update" : "Save"} set</button><button type="submit" name="status" value="skipped">Skip set</button></div></form>`;
+function cell(name, label, value, attrs = "") {
+  return `<input name="${name}" aria-label="${esc(label)}" type="number" inputmode="decimal" step="any" value="${esc(value)}" ${attrs}>`;
+}
+function setRow(s, e, slot) {
+  const r = D.row(store, s, e, slot, today()),
+    run = e.kind === "run",
+    distance = !run && e.prescription.includes("yd"),
+    effort = effortField(e),
+    label = `${e.name}, ${slotLabel(e, slot)}`,
+    saved = store.records.some((r) => r.id === setId(s, e, slot));
+  return `<tr class="set-row" data-e="${esc(e.id)}" data-slot="${slot.key}" data-finalized="${saved}">
+    <th scope="row" title="${e.top && slot.index ? `Back-off ${slot.index}` : slotLabel(e, slot)}">${slotLabel(e, slot)}</th>
+    <td>${cell(run ? "seconds" : "load", `${label}, ${run ? "time in seconds" : e.loadUnit}`, run ? r.seconds : r.load, run ? 'min="0"' : "")}</td>
+    <td>${cell(run || distance ? "distance" : "reps", `${label}, ${run || distance ? "distance" : "reps"}`, run || distance ? r.distance : r.reps, 'min="0"')}</td>
+    <td>${cell(effort, `${label}, actual ${effort.toUpperCase()}`, r[effort], `min="${effort === "rpe" ? 1 : 0}" max="10"`)}</td>
+    <td><label class="cell-check"><input name="checked" type="checkbox" aria-label="${esc(label)}, completed · include on Finish" ${r.checked ? "checked" : ""}></label></td>
+  </tr>`;
+}
+function advancedFields(s, e, slot) {
+  const r = D.row(store, s, e, slot, today()),
+    alternate = effortField(e) === "rpe" ? "rir" : "rpe",
+    run = e.kind === "run",
+    distance = !run && e.prescription.includes("yd");
+  return `<div data-slot="${slot.key}" data-e="${esc(e.id)}" class="advanced-fields"><div class="fields two">
+    ${field(alternate, `Actual ${alternate.toUpperCase()} (optional)`, r[alternate], "number", `min="${alternate === "rpe" ? 1 : 0}" max="10" step="0.5"`)}
+    ${field("date", "Performed date", r.date, "date", "required")}
+    ${field("rpeLow", "Actual RPE range · low", r.rpeLow, "number", 'min="1" max="10" step="0.5"')}
+    ${field("rpeHigh", "Actual RPE range · high", r.rpeHigh, "number", 'min="1" max="10" step="0.5"')}
+    ${!run ? field("seconds", "Time (seconds)", r.seconds, "number", 'min="0"') + (distance ? field("reps", "Reps", r.reps, "number", 'min="0" step="1"') : field("distance", "Distance (yd)", r.distance, "number", 'min="0"')) : ""}
+    ${
+      !run
+        ? `<label>Load unit<select name="unit">${[
+            e.loadUnit,
+            "lb total",
+            "lb per hand",
+            "lb added / assistance",
+            "device setting",
+            "bodyweight",
+          ]
+            .filter((v, i, a) => a.indexOf(v) === i)
+            .map(
+              (v) =>
+                `<option ${v === r.unit ? "selected" : ""}>${esc(v)}</option>`,
+            )
+            .join("")}</select></label>`
+        : ""
+    }
+    </div><p class="hint">Use one actual RPE or a range; leave effort blank if unknown. Effort edits propagate only within this side and top/back-off group.</p>
+    ${field("variant", "Actual variant (different variants stay separate)", r.variant, "text", "required")}
+    ${e.device ? field("deviceMode", "Device mode / firmware (as displayed)", r.deviceMode, "text") : ""}
+    <label>Notes / quality / reason skipped<textarea name="notes">${esc(r.notes)}</textarea></label></div>`;
+}
+function backoffText(s, e) {
+  const slot = M.setSlots(e)[0],
+    v = D.row(store, s, e, slot, today());
+  const range =
+    v.checked &&
+    v.variant === e.exerciseId &&
+    v.unit === e.loadUnit &&
+    C.backoff(Number(v.load), e, increment(e));
+  const isDraft = !!store.drafts?.[s.id]?.sets[setId(s, e, slot)];
+  return range
+    ? `${range.join("–")} lb from ${isDraft ? "entered top set (draft)" : "saved top set"} (${v.load} lb)`
+    : `Pending actual top set · ${e.top.backPercent.join("–")}% of actual top weight`;
+}
+function renderInPlace() {
+  const y = window.scrollY;
+  const selected = [...document.querySelectorAll(".exercise")].map((card) => [
+    card.dataset.exercise,
+    card.querySelector(".advanced-slot").value,
+  ]);
+  const open = [...document.querySelectorAll("details")].map((d) => d.open);
+  render();
+  document.querySelectorAll("details").forEach((d, i) => {
+    if (i < open.length) d.open = open[i];
+  });
+  for (const [id, key] of selected) {
+    const card = document.querySelector(
+      `.exercise[data-exercise="${CSS.escape(id)}"]`,
+    );
+    if (!card) continue;
+    const s = session(),
+      e = s.exercises.find((e) => e.id === id),
+      slot = M.setSlots(e).find((slot) => slot.key === key);
+    if (slot) {
+      card.querySelector(".advanced-slot").value = key;
+      card.querySelector(".advanced-editor").innerHTML = advancedFields(
+        s,
+        e,
+        slot,
+      );
+    }
+  }
+  requestAnimationFrame(() => window.scrollTo(0, y));
 }
 function plan() {
   const ss = program.sessions
@@ -321,127 +408,93 @@ function bind() {
         }
       }),
   );
-  $("#startSession")?.addEventListener("click", () =>
+  $("#undoDraft")?.addEventListener("click", () =>
     guard(() => {
-      const s = session();
-      save(
-        M.updateRecord(
-          store,
-          sessionRecord(store, program, s, "started", today()),
-        ),
-      );
-      render();
-      notify("Session started. Record actual sets as you go.");
+      save(D.undoDraft(store, session()));
+      renderInPlace();
+      notify("Draft edit undone. Finalized records are unchanged.");
     }),
   );
   $("#completeSession")?.addEventListener("click", () =>
     guard(() => {
-      const s = session(),
-        required = s.exercises
-          .filter((e) => !e.warmup && !e.optional)
-          .flatMap((e) => M.setSlots(e).map((slot) => setId(s, e, slot))),
-        r = recs(s);
-      if (
-        !required.every((id) => r.some((x) => x.id === id)) ||
-        !r.some((x) => x.status === "done")
-      )
-        throw Error(
-          "Record or explicitly skip every required set before completing. At least one actual set is required.",
-        );
+      const s = session();
       save(
-        M.updateRecord(
+        D.finishWorkout(
           store,
-          sessionRecord(store, program, s, "completed", today()),
+          program,
+          s,
+          today(),
+          C.activeReference(store, athlete, program.paceDefaults),
         ),
       );
-      render();
-      notify("Session completed.");
+      renderInPlace();
+      notify(
+        "Workout finished. Checked results saved; prior versions retained.",
+      );
     }),
   );
-  document.querySelectorAll(".set-form").forEach(
-    (form) =>
-      (form.onsubmit = (event) => {
-        event.preventDefault();
-        guard(() => {
-          const s = session(),
-            e = s.exercises.find((e) => e.id === form.dataset.e),
-            slot = M.setSlots(e).find((x) => x.key === form.dataset.slot),
-            fd = new FormData(form),
-            status = event.submitter.value;
-          const r = {
-            id: setId(s, e, slot),
-            type: "set",
-            athlete,
-            sessionId: s.id,
-            exerciseId: e.exerciseId,
-            slot: slot.index,
-            side: slot.side,
-            variant: fd.get("variant").trim(),
-            date: fd.get("date"),
-            unit: fd.get("unit") || "running",
-            distanceUnit:
-              e.kind === "run"
-                ? /\bm\b/.test(e.prescription)
-                  ? "m"
-                  : "mi"
-                : "yd",
-            deviceMode: fd.get("deviceMode") || null,
-            notes: fd.get("notes"),
-            status,
-            updatedAt: new Date().toISOString(),
-            prescriptionSnapshot: M.clone(e),
-            paceReference:
-              e.kind === "run"
-                ? M.clone(
-                    store.records.find((x) => x.id === setId(s, e, slot))
-                      ?.paceReference ||
-                      C.activeReference(store, athlete, program.paceDefaults),
-                  )
-                : null,
-            programVersion:
-              store.records.find(
-                (r) => r.type === "session" && r.sessionId === s.id,
-              )?.programVersion || program.id,
-            provenance: "performed; entered in app",
-          };
-          for (const k of ["load", "reps", "seconds", "distance", "rpe", "rir"])
-            r[k] =
-              fd.get(k) == null || fd.get(k) === "" ? null : Number(fd.get(k));
-          const rpeLow = fd.get("rpeLow"),
-            rpeHigh = fd.get("rpeHigh");
-          if (rpeLow || rpeHigh) {
-            if (!rpeLow || !rpeHigh)
-              throw Error("Enter both actual RPE range endpoints.");
-            r.rpeRange = [Number(rpeLow), Number(rpeHigh)];
-          }
-          if (!r.date || !r.variant)
-            throw Error("Date and variant are required.");
-          if (status === "skipped" && !r.notes.trim())
-            throw Error("Add a short reason in Notes before skipping.");
-          let next = M.updateRecord(
-            store,
-            sessionRecord(store, program, s, "started", today()),
+  document.querySelectorAll(".exercise").forEach((card) => {
+    card.querySelector(".advanced-slot").onchange = (event) => {
+      const s = session(),
+        e = s.exercises.find((e) => e.id === card.dataset.exercise),
+        slot = M.setSlots(e).find((slot) => slot.key === event.target.value);
+      card.querySelector(".advanced-editor").innerHTML = advancedFields(
+        s,
+        e,
+        slot,
+      );
+    };
+    card.oninput = (event) =>
+      guard(() => {
+        const input = event.target;
+        const form = input.closest("[data-slot]");
+        if (!input.name || !form) return;
+        const s = session(),
+          e = s.exercises.find((e) => e.id === form.dataset.e),
+          slot = M.setSlots(e).find((slot) => slot.key === form.dataset.slot);
+        try {
+          save(
+            D.editDraft(
+              store,
+              program,
+              s,
+              e,
+              slot,
+              input.name,
+              input.type === "checkbox" ? input.checked : input.value,
+              today(),
+            ),
           );
-          next = M.updateRecord(next, r);
-          save(next);
-          const scrollY = window.scrollY;
-          const open = [...document.querySelectorAll("details.log[open]")].map(
-            (d) => d.closest(".exercise").dataset.exercise,
-          );
-          render();
-          for (const id of open)
-            document.querySelector(
-              `.exercise[data-exercise="${CSS.escape(id)}"] details.log`,
-            ).open = true;
-          requestAnimationFrame(() => window.scrollTo(0, scrollY));
-          notify(
-            status === "done"
-              ? "Set saved. Previous version retained."
-              : "Set skipped with reason.",
-          );
-        });
-      }),
-  );
+        } catch (err) {
+          $("#draftStatus").textContent =
+            "Draft NOT saved. Keep this page open and copy your input before reloading.";
+          throw err;
+        }
+        // Patch values without replacing the focused input or closing details.
+        form
+          .closest(".exercise")
+          .querySelectorAll("[data-slot]")
+          .forEach((target) => {
+            const targetSlot = M.setSlots(e).find(
+                (x) => x.key === target.dataset.slot,
+              ),
+              values = D.row(store, s, e, targetSlot, today());
+            target.querySelectorAll("[name]").forEach((control) => {
+              if (control === input) return;
+              if (control.type === "checkbox")
+                control.checked = values[control.name];
+              else control.value = values[control.name] ?? "";
+            });
+          });
+        const backoff = form
+          .closest(".exercise")
+          .querySelector(".backoff-target");
+        if (backoff) backoff.textContent = backoffText(s, e);
+        $("#undoDraft").disabled = !store.drafts?.[s.id]?.undo.length;
+        $("#draftStatus").textContent =
+          "Draft saved on this browser. Finalize checked results with Finish Workout.";
+      });
+  });
   document.querySelectorAll("[data-increment]").forEach(
     (input) =>
       (input.onchange = () =>

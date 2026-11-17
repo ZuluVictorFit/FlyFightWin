@@ -133,9 +133,10 @@ export function effectiveSession(store, planned) {
   const saved = store.records.find(
     (r) => r.type === "session" && r.sessionId === planned.id,
   );
-  return saved?.prescriptionSnapshot
-    ? structuredClone(saved.prescriptionSnapshot)
-    : planned;
+  const snapshot =
+    saved?.prescriptionSnapshot ||
+    store.drafts?.[planned.id]?.prescriptionSnapshot;
+  return snapshot ? structuredClone(snapshot) : planned;
 }
 export function sessionRecord(store, program, session, status, date) {
   const old = store.records.find(
@@ -149,7 +150,10 @@ export function sessionRecord(store, program, session, status, date) {
     sessionId: session.id,
     status,
     date: old?.date || date,
-    programVersion: old?.programVersion || program.id,
+    programVersion:
+      old?.programVersion ||
+      store.drafts?.[session.id]?.programVersion ||
+      program.id,
     blockId: old?.blockId || program.blockId,
     prescriptionSnapshot: old?.prescriptionSnapshot || structuredClone(session),
   };
