@@ -41,11 +41,18 @@ test("exact reps and required checks prefill without invented effort or history"
   );
   assert.equal(d.records.length, 0);
   assert.ok(rows(d, { ...e, optional: true }).every((r) => !r.checked));
+  // Rep ranges default to the low end without creating performed records.
   assert.ok(
     rows(d, { ...e, repRange: [8, 10], prescription: "8-10 reps" }).every(
-      (r) => r.reps === "",
+      (r) => r.reps === "8" && r.checked,
     ),
   );
+  const actualBench = s.exercises.find((x) => x.exerciseId === "incline-dumbbell-bench");
+  assert.deepEqual(
+    rows(d, actualBench, s).map((r) => [r.reps, r.load, r.rir]),
+    [["8", "", ""], ["8", "", ""], ["8", "", ""]],
+  );
+  assert.equal(d.records.length, 0);
   const top = s.exercises.find((e) => e.top);
   assert.deepEqual(
     rows(d, top, s).map((r) => r.reps),
