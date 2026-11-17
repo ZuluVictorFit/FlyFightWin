@@ -282,6 +282,39 @@ try {
   console.log(
     "PASS data-only program revision: saved sessions/performance unchanged; unstarted session receives targeted update",
   );
+  // RTS form regression uses synthetic values and preserves immutable revisions.
+  await page.unroute("**/data/program.json");
+  await page.reload();
+  await page.waitForSelector(".exercise");
+  const rtsForm = page
+    .locator('[data-exercise="b-barbell-z-press"] .set-form')
+    .first();
+  await rtsForm.locator("details").evaluate((e) => (e.open = true));
+  await rtsForm.locator('[name="load"]').fill("125");
+  await rtsForm.locator('[name="reps"]').fill("5");
+  await rtsForm.locator('[name="rpe"]').fill("7.5");
+  await rtsForm.locator('[name="date"]').fill("2026-01-19");
+  await rtsForm.locator('button[value="done"]').click();
+  assert.match(
+    await page
+      .locator('[data-exercise="b-barbell-z-press"] .target')
+      .innerText(),
+    /RTS:/,
+  );
+  await rtsForm.locator("details").evaluate((e) => (e.open = true));
+  await rtsForm.locator('[name="rpe"]').fill("");
+  await rtsForm.locator('[name="rpeLow"]').fill("7");
+  await rtsForm.locator('[name="rpeHigh"]').fill("8");
+  await rtsForm.locator('button[value="done"]').click();
+  await page.reload();
+  await page.waitForSelector(".exercise");
+  assert.match(
+    await page
+      .locator('[data-exercise="b-barbell-z-press"] .target')
+      .innerText(),
+    /actual RPE 7–8/,
+  );
+  console.log("PASS RTS half-point effort and uncertainty range save/reload");
   // Isolated first-run migration and archive read-only behavior.
   const privatePage = await context.newPage();
   await privatePage.goto(base);

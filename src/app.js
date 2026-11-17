@@ -1,3 +1,4 @@
+import { rtsEstimate } from "./rts.js";
 import * as M from "./model.js";
 import * as C from "./calculations.js";
 import { validateProgram, effectiveSession, sessionRecord } from "./program.js";
@@ -160,7 +161,7 @@ function exercise(s, e) {
  ${e.device ? '<p class="warning">Verify this mode and firmware on your device. Record its own setting; simulated yards/resistance are not equivalent to a physical sled. No replacement is assumed.</p>' : ""}
  ${/heavy sandbag front/.test(e.name) ? '<p class="warning">Equipment review: confirm an appropriate heavy front-carry implement before this exercise. Do not substitute a light bag or a different implement silently.</p>' : ""}
  ${/Leg press/.test(e.name) && athlete === "h" ? '<p class="hint">Equipment may be unavailable at home. This finisher remains optional.</p>' : ""}
- ${e.top || /^(Hang power clean|Push press|DB push press)$/.test(e.name) ? `<div class="target"><strong>${load.range ? `${load.range.join("–")} ${e.loadUnit} suggested` : "RPE-guided ramp"}</strong>${load.band ? `<p>Initial ${load.band.join("–")}% of lift-specific e1RM · RPE cap ${e.rpeCap} takes priority</p>` : ""}<p>${esc(load.source)}</p>${e.top ? `<p><b>Back-offs:</b> ${back ? `${back.join("–")} lb from saved top set (${top.load} lb)` : `Pending actual top set · ${e.top.backPercent.join("–")}% of actual top weight`}</p>` : ""}</div>` : ""}
+ ${e.top || /^(Hang power clean|Push press|DB push press)$/.test(e.name) ? `<div class="target"><strong>${load.range ? `${load.range.join("–")} ${e.loadUnit} suggested` : "RPE-guided ramp"}</strong>${load.band ? `<p>Initial fallback band ${load.band.join("–")}% of unadjusted Epley e1RM${load.referenceRange ? `: ${load.referenceRange.join("–")} lb from the unadjusted Epley estimate (~${Math.round(load.max)} lb). Fallback reference only; RTS guidance above takes priority.` : ""} · RPE cap ${e.rpeCap} takes priority</p>` : ""}<p>${esc(load.source)}</p>${e.top ? `<p><b>Back-offs:</b> ${back ? `${back.join("–")} lb from saved top set (${top.load} lb)` : `Pending actual top set · ${e.top.backPercent.join("–")}% of actual top weight`}</p>` : ""}</div>` : ""}
  <details class="log" ${e.top ? "open" : ""}><summary>Log sets <small>· ${rows.length}/${all.length} recorded or skipped</small></summary><p class="hint">Targets above are planned. Fields below are actual results; nothing is filled automatically.</p>${all.map((slot) => setForm(s, e, slot)).join("")}</details>
  ${e.kind === "strength" ? `<details><summary>Load increment & progression</summary><label>Available increment (${esc(e.loadUnit)})<input data-increment="${esc(e.exerciseId)}" type="number" min="0.25" step="0.25" value="${increment(e)}"></label><p class="hint">${esc(C.doubleProgression(e, rows.length ? rows.filter((r) => r.variant === e.exerciseId && r.unit === e.loadUnit) : lastSession, increment(e)))}</p></details>` : ""}
  <div class="last">${last ? `Last matched variant · ${esc(last.date)} · ${last.load ?? "—"} ${esc(last.unit)} × ${last.reps ?? "—"} · RIR ${last.rir ?? "unknown"}` : "No recorded history for this exact variant yet."}</div></section>`;
@@ -188,7 +189,7 @@ function setForm(s, e, slot) {
          )
          .join("")}</select></label>`
      : ""
- }</div>${field("variant", "Actual variant (different variants stay separate)", r.variant || e.exerciseId, "text", "required")}${e.device ? field("deviceMode", "Device mode / firmware (as displayed)", r.deviceMode, "text") : ""}<label>Notes / quality / reason skipped<textarea name="notes">${esc(r.notes)}</textarea></label></details><div class="actions"><button class="primary" type="submit" name="status" value="done">${r.status ? "Update" : "Save"} set</button><button type="submit" name="status" value="skipped">Skip set</button></div></form>`;
+ }</div>${!isRun ? `<div class="fields two">${field("rpeLow", "Actual RPE range · low", r.rpeRange?.[0], "number", 'min="1" max="10" step="0.5"')}${field("rpeHigh", "Actual RPE range · high", r.rpeRange?.[1], "number", 'min="1" max="10" step="0.5"')}</div><p class="hint">Use one actual RPE or a range. Leave both blank if effort was not recorded.</p>` : ""}${field("variant", "Actual variant (different variants stay separate)", r.variant || e.exerciseId, "text", "required")}${e.device ? field("deviceMode", "Device mode / firmware (as displayed)", r.deviceMode, "text") : ""}<label>Notes / quality / reason skipped<textarea name="notes">${esc(r.notes)}</textarea></label></details><div class="actions"><button class="primary" type="submit" name="status" value="done">${r.status ? "Update" : "Save"} set</button><button type="submit" name="status" value="skipped">Skip set</button></div></form>`;
 }
 function plan() {
   const ss = program.sessions
@@ -232,14 +233,14 @@ function progress() {
           `${20 + (i * 560) / Math.max(1, points.length - 1)},${105 - ((r.load - lo) / Math.max(1, hi - lo)) * 80}`,
       )
       .join(" ");
-  return `<p class="eyebrow">Progress / ${athlete === "z" ? "Zack" : "Hannah"}</p><h1>Build on what you record.</h1><div class="stats"><div><b>${sessions.filter((r) => r.status === "completed").length}/${program.sessions.filter((s) => s.athlete === athlete && !s.restDay).length}</b><small>Completed sessions</small></div><div><b>${sets.length}</b><small>Recorded sets</small></div><div><b>${active.value?.toFixed(1) || "—"}</b><small>Active VDOT</small></div></div><section class="card"><h2>Exercise history</h2><label>Exact exercise variant<select id="historyExercise">${variants.map((v) => `<option value="${esc(v)}" ${v === historyExercise ? "selected" : ""}>${esc(v.replaceAll("-", " "))}</option>`).join("")}</select></label><p class="hint">Recorded load by set, chronological. Compare like units and repetitions. Estimated max uses Epley for 1–10 reps on supported strength lifts only; it is not a tested max.</p>${points.length > 1 && new Set(points.map((r) => r.unit)).size === 1 ? `<svg class="chart" viewBox="0 0 600 130" role="img" aria-label="Recorded load trend; exact values listed below"><polyline points="${coords}" fill="none" stroke="#DFC780" stroke-width="3"/>${points.map((r, i) => `<circle cx="${20 + (i * 560) / Math.max(1, points.length - 1)}" cy="${105 - ((r.load - lo) / Math.max(1, hi - lo)) * 80}" r="4" fill="#F8F3E6"/>`).join("")}</svg>` : ""}${
+  return `<p class="eyebrow">Progress / ${athlete === "z" ? "Zack" : "Hannah"}</p><h1>Build on what you record.</h1><div class="stats"><div><b>${sessions.filter((r) => r.status === "completed").length}/${program.sessions.filter((s) => s.athlete === athlete && !s.restDay).length}</b><small>Completed sessions</small></div><div><b>${sets.length}</b><small>Recorded sets</small></div><div><b>${active.value?.toFixed(1) || "—"}</b><small>Active VDOT</small></div></div><section class="card"><h2>Exercise history</h2><label>Exact exercise variant<select id="historyExercise">${variants.map((v) => `<option value="${esc(v)}" ${v === historyExercise ? "selected" : ""}>${esc(v.replaceAll("-", " "))}</option>`).join("")}</select></label><p class="hint">Recorded load by set, chronological. Compare like units and repetitions. Eligible barbell estimates use the supplied RTS chart and recorded RPE. Unadjusted Epley values are labeled fallback references; neither method is a tested max.</p>${points.length > 1 && new Set(points.map((r) => r.unit)).size === 1 ? `<svg class="chart" viewBox="0 0 600 130" role="img" aria-label="Recorded load trend; exact values listed below"><polyline points="${coords}" fill="none" stroke="#DFC780" stroke-width="3"/>${points.map((r, i) => `<circle cx="${20 + (i * 560) / Math.max(1, points.length - 1)}" cy="${105 - ((r.load - lo) / Math.max(1, hi - lo)) * 80}" r="4" fill="#F8F3E6"/>`).join("")}</svg>` : ""}${
     hist.length
       ? `<ul class="list">${hist
           .slice()
           .reverse()
           .map(
             (r) =>
-              `<li><b>${esc(r.date || "Date unknown")}</b> · ${r.load ?? "—"} ${esc(r.unit)} × ${r.reps ?? "—"}<p>RPE ${r.rpe ?? "unknown"} · RIR ${r.rir ?? "unknown"}${C.supportsMax(r.variant) && C.e1rm(r.load, r.reps) ? ` · estimated e1RM ${Math.round(C.e1rm(r.load, r.reps))} lb` : ""}</p><small>${esc(r.provenance || "Performed; entered in this app")} · ${esc(r.notes)}</small></li>`,
+              `<li><b>${esc(r.date || "Date unknown")}</b> · ${r.load ?? "—"} ${esc(r.unit)} × ${r.reps ?? "—"}<p>RPE ${r.rpeRange?.join("–") ?? r.rpe ?? "unknown"} · RIR ${r.rir ?? "unknown"}${rtsEstimate(r) || (C.supportsMax(r.variant) && C.e1rm(r.load, r.reps)) ? ` · ${rtsEstimate(r) ? `RTS estimated 1RM ${rtsEstimate(r).range.map(Math.round).join("–")} lb` : `Epley fallback reference ${Math.round(C.e1rm(r.load, r.reps))} lb (unadjusted)`}` : ""}</p><small>${esc(r.provenance || "Performed; entered in this app")} · ${esc(r.notes)}</small></li>`,
           )
           .join("")}</ul>`
       : '<p class="empty">Your first recorded set starts this history.</p>'
@@ -406,6 +407,13 @@ function bind() {
           for (const k of ["load", "reps", "seconds", "distance", "rpe", "rir"])
             r[k] =
               fd.get(k) == null || fd.get(k) === "" ? null : Number(fd.get(k));
+          const rpeLow = fd.get("rpeLow"),
+            rpeHigh = fd.get("rpeHigh");
+          if (rpeLow || rpeHigh) {
+            if (!rpeLow || !rpeHigh)
+              throw Error("Enter both actual RPE range endpoints.");
+            r.rpeRange = [Number(rpeLow), Number(rpeHigh)];
+          }
           if (!r.date || !r.variant)
             throw Error("Date and variant are required.");
           if (status === "skipped" && !r.notes.trim())

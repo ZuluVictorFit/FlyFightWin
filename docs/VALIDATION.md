@@ -4,7 +4,7 @@ All application screenshots and browser-test entries are **synthetic test data**
 
 | Check | Actual result |
 |---|---|
-| `npm test` | 34 tests passed; 0 failed, skipped or cancelled |
+| `npm test` | 47 tests passed; 0 failed, skipped or cancelled |
 | `npm run test:browser` | All 96 active athlete sessions rendered and saved a working set; every prescribed working-set editor/side present |
 | PDF reconciliation | 566 rows / 2,830 cells / all 48 daily pages matched independently; six overview pages retained |
 | Private original exports + combined + baseline | Athlete-scoped merge equals combined; legacy history unchanged; idempotence; partial records preserved; estimates excluded from completed sets; v3 roundtrip lossless |
@@ -46,3 +46,5 @@ Gold buttons use deep-navy text, 9.78:1. All exceed 4.5:1 for normal text. Brass
 - No GitHub Pages production deployment was performed. CI workflow is supplied without a deploy job; its remote run is not claimed until GitHub executes it.
 - Device firmware, real equipment, and training-methodology conflicts remain listed in `REVIEW_REQUIRED.md`.
 - Browser local storage remains device-specific; export/import is the supported transfer mechanism. Quota and stale-tab failures are tested in the storage layer; real device eviction cannot be prevented by the app.
+
+Review update: CI is pinned to Ubuntu 24.04 for Playwright 1.58.2. RTS lookup, uncertainty, practical rounding, missing-effort and lift-isolation regressions are included. See [loading method](LOADING_METHOD.md). Remote CI results are reported separately after the run.

@@ -1,3 +1,4 @@
+import { rtsEligible, rtsEstimate, rtsPercent, actualRpeRange } from "./rts.js";
 export const roundLoad = (n, step = 5) => {
   if (!(step > 0) || !Number.isFinite(n)) return null;
   return Math.round(n / step) * step;
@@ -44,29 +45,59 @@ export function matchedHistory(store, athlete, variant, unit) {
         (a.updatedAt || "").localeCompare(b.updatedAt || ""),
     );
 }
+// Chart advice is read-only: neither actual records nor prescriptions change.
+function repeatExposure(last, e, band, max, step) {
+  const referenceRange = max
+    ? band.map((p) => roundLoad((max * p) / 100, step))
+    : null;
+  const reference = { band, max, referenceRange };
+  const estimate = rtsEstimate(last),
+    effort = actualRpeRange(last);
+  const evidence = `Performed ${last.load} lb × ${last.reps} on ${last.date || "unknown date"}; actual RPE ${effort ? effort.join("–") : "unrecorded"}.`;
+  if (
+    effort &&
+    Math.max(...effort) > (last.prescriptionSnapshot?.rpeCap ?? e.rpeCap) &&
+    Math.max(...effort) > e.rpeCap
+  )
+    return {
+      ...reference,
+      range: null,
+      source: `${evidence} This exceeded the current RPE cap of ${e.rpeCap}. Reduce the load and ramp to the prescribed effort.`,
+    };
+  const target = rtsPercent(e.top.reps, e.rpeCap);
+  if (estimate && target != null) {
+    const unrounded = estimate.range.map((n) => (n * target) / 100);
+    const range = [
+      Math.floor((unrounded[0] + 1e-9) / step) * step,
+      Math.ceil((unrounded[1] - 1e-9) / step) * step,
+    ];
+    return {
+      ...reference,
+      range,
+      method: "RTS",
+      estimateRange: estimate.range,
+      targetPercent: target,
+      source: `${evidence} RTS: ${estimate.percent.join("–")}% at the recorded effort → approximately ${estimate.range.map(Math.round).join("–")} lb estimated 1RM. Target ${e.top.reps} reps at RPE ${e.rpeCap}: ${target}%. Rounded outward to available increments; start at the lower load and use the upper only if the RPE cap permits. Reconfirm after a layoff; this is not a tested max.`,
+    };
+  }
+  return {
+    ...reference,
+    range: null,
+    method: "RPE-guided",
+    source: `${evidence} ${effort ? "Actual or target reps/RPE are outside the supplied RTS chart." : "Actual effort is missing; prescribed RPE and RIR are not substituted."} Use an RPE-guided ramp. Any unadjusted Epley percentage shown is a fallback reference only, not a recommendation for this submaximal exposure.`,
+  };
+}
 export function loading(store, a, e, step = 5) {
   const band = initialBand(e),
     hist = matchedHistory(store, a, e.exerciseId, e.loadUnit).filter(
       (r) =>
-        e1rm(r.load, r.reps) &&
+        (rtsEstimate(r) || e1rm(r.load, r.reps)) &&
         (!e.top || r.slot === 0 || r.sessionId === "historical-baseline"),
     );
   const last = hist.at(-1),
     max = supportsMax(e.exerciseId) && last ? e1rm(last.load, last.reps) : null;
-  if (band && max && last.rpe > e.rpeCap)
-    return {
-      band,
-      range: null,
-      source: `Last performed set exceeded this session's RPE cap of ${e.rpeCap}. Reduce the load and use a controlled ramp; the percentage is only a reference.`,
-      max,
-    };
-  if (band && max)
-    return {
-      band,
-      range: band.map((p) => roundLoad((max * p) / 100, step)),
-      source: `Estimated Epley e1RM ${Math.round(max)} lb from performed ${last.date || "undated"} set; RPE ${last.rpe ?? "unknown"}. Reconfirm after a layoff.`,
-      max,
-    };
+  if (band && last && rtsEligible(e.exerciseId))
+    return repeatExposure(last, e, band, max, step);
   if (
     !band &&
     last &&

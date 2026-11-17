@@ -114,6 +114,22 @@ export function validateSet(r) {
         `${k} cannot be negative`,
       );
     }
+  if (r.rpeRange != null) {
+    assert(
+      Array.isArray(r.rpeRange) &&
+        r.rpeRange.length === 2 &&
+        r.rpeRange.every(
+          (n) =>
+            typeof n === "number" && Number.isFinite(n) && n >= 1 && n <= 10,
+        ) &&
+        r.rpeRange[0] <= r.rpeRange[1],
+      "Invalid actual RPE range",
+    );
+    assert(
+      r.rpe == null,
+      "Use either actual RPE or an actual RPE range, not both",
+    );
+  }
   assert(r.rpe == null || (r.rpe >= 1 && r.rpe <= 10), "RPE must be 1–10");
   assert(r.rir == null || r.rir <= 10, "RIR must be 0–10");
   assert(

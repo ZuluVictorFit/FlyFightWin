@@ -4,9 +4,11 @@ The static navy/gold application includes all 96 active athlete sessions, 16 res
 
 Program data is separate from rendering, logs and calculations. Approved change requests can target an exercise, one athlete's session/week, or a whole block. Started/completed sessions retain their original program revision and full prescription snapshots. Future updates recalculate upcoming targets without rewriting historical results or the other athlete's prescriptions.
 
+Review fixes pin CI to Ubuntu 24.04 and use the supplied RTS chart for eligible submaximal barbell estimates, including half-point RPE and uncertainty ranges. See [loading method](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/LOADING_METHOD.md). Existing prescriptions and historical records are unchanged.
+
 Validation performed locally:
 
-- 34 automated tests passed, none failed or skipped.
+- 47 automated tests passed, none failed or skipped.
 - Browser suite rendered and saved a working set in all 96 active sessions; checked every working-set editor, reload persistence, top/back-off calculation, plan, progress/history, backup restore and legacy protection.
 - Browser regression confirmed a data-only revision preserves saved sessions and applies revised targets to unstarted sessions.
 - Independent PDF audit matched all 566 rows / 2,830 cells across 48 daily pages; six overview pages retained.

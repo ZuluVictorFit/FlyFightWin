@@ -32,7 +32,7 @@ See [phone migration instructions](docs/MIGRATION.md), [program integrity report
 
 ## Calculation boundaries
 
-Top-set starting bands are provisional coaching aids, not replacements for the PDF's RPE caps. Bands use only exact-lift performed data (Epley, 1–10 reps); the latest recorded matching set is identified with date/provenance. Unknown RPE is shown as unknown. A recorded effort above the current cap suppresses the numerical target. Back-offs use the actual saved matching-variant top load and round to the selected increment. Without that top set, only the rule is displayed.
+Eligible primary barbell estimates now use the exact supplied RTS chart with actual recorded RPE, including half points and effort ranges. Upcoming reps and the RPE cap determine the suggested load; equipment rounding is shown as a range. Missing or out-of-chart effort produces an RPE-guided ramp. Unadjusted Epley percentages remain clearly labeled fallback references. See [calculation details](docs/LOADING_METHOD.md). Back-offs still use actual saved top loads.
 
 Accessory increases require every prescribed set/side, matching variant and units, consistent load, upper-end reps, and explicitly recorded RIR meeting the target. Warmups are displayed separately. Device resistance, sleds, carries and power cleans receive no e1RM. An imported partial performance is not an entire completed workout.
 
