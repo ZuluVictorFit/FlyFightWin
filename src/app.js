@@ -119,9 +119,9 @@ function workout() {
  ${s.exercises.map((e) => exercise(s, e)).join("")}<p class="provenance">Approved program · ${esc(s.approvalSource || `PDF page ${s.sourcePage}`)} · ${esc(store.records.find((r) => r.type === "session" && r.sessionId === s.id)?.programVersion || program.id)}</p>`;
 }
 function paceCard() {
-  const ref =
-    recs(session()).find((r) => r.paceReference)?.paceReference ||
-    C.activeReference(store, athlete, program.paceDefaults);
+  // The Today card is a CURRENT training target, not an archival snapshot.
+  // Performed sets retain their original paceReference in History.
+  const ref = C.activeReference(store, athlete, program.paceDefaults);
   return `<section class="card"><p class="eyebrow">Active pace reference</p><h2>${ref.value ? `VDOT ${ref.value.toFixed(1)}` : "Baseline pending"}</h2><p class="hint">${esc(ref.source)}</p>${ref.value ? `<div class="meta">${["E", "T", "I", "R", "2M"].map((t) => `<span>${t} ${C.clock(C.pace(ref.value, t))}/mi</span>`).join("")}</div>` : ""}<p class="hint">Effort and the prescribed recovery govern. Nonmaximal runs never update VDOT. Choose or pin a reference in Progress.</p></section>`;
 }
 function effortField(e) {
@@ -143,9 +143,7 @@ function exercise(s, e) {
     load = C.loading(store, athlete, e, increment(e)),
     primary =
       e.top || /^(Hang power clean|Push press|DB push press)$/.test(e.name),
-    paceRef =
-      recs(s).find((r) => r.paceReference)?.paceReference ||
-      C.activeReference(store, athlete, program.paceDefaults),
+    paceRef = C.activeReference(store, athlete, program.paceDefaults),
     paceType =
       e.kind === "run"
         ? /Current 2-mile/.test(e.intensity)
@@ -159,11 +157,15 @@ function exercise(s, e) {
       : [],
     run = e.kind === "run",
     distance = !run && e.prescription.includes("yd"),
-    effort = effortField(e);
+    effort = effortField(e),
+    displayIntensity =
+      athlete === "z" && e.kind === "run" && e.intensity === "T (VDOT 47.2)"
+        ? "T (current VDOT)"
+        : e.intensity;
   return `<section class="card exercise" data-exercise="${esc(e.id)}">
     <header class="compact-heading"><h2><span class="exercise-group">${esc(e.group)}</span>${esc(e.name)}${e.optional ? '<small class="optional-label">Optional</small>' : ""}</h2>
       <p class="prescription">${e.top || /\d+\s*x\s*\d/.test(e.prescription) ? "" : `${e.sets} × `}${esc(e.prescription)}</p>
-      <p class="intensity">${esc(e.intensity)} · Rest ${esc(e.rest)}</p></header>
+      <p class="intensity">${esc(displayIntensity)} · Rest ${esc(e.rest)}</p></header>
     ${paceType && paceRef.value ? `<p class="compact-target">${paceType} · ${C.clock(C.pace(paceRef.value, paceType))}/mi</p>` : ""}
     ${e.device ? '<p class="warning">Verify mode, firmware and anchor. Record device settings; simulated yards are not physical sled distances.</p>' : ""}
     ${/heavy sandbag front/.test(e.name) ? '<p class="warning">Confirm an appropriate heavy front-carry implement. Do not silently substitute a light bag or another implement.</p>' : ""}
@@ -613,7 +615,7 @@ window.addEventListener("storage", (e) => {
     notify("Data changed in another tab. Reload before editing.");
 });
 try {
-  program = validateProgram(await (await fetch("data/program.json")).json());
+  program = validateProgram(await (await fetch("data/program.json", { cache: "no-store" })).json());
   store = M.readStore(localStorage);
   expected = localStorage.getItem(M.KEY);
   const aligned = M.adoptPaceRevision(store, program.paceDefaults);
