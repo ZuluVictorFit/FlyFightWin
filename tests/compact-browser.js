@@ -51,7 +51,9 @@ export async function compactBrowser(browser, base) {
         .locator('[data-exercise="d1-barbell-bent-over-row"] [name="reps"]')
         .evaluateAll((xs) => xs.every((x) => x.value === "8")),
     );
-    assert.deepEqual(await values("reps"), ["", "", ""]); // The approved rep range is not a fictional exact result.
+    // Range-based prescriptions prefill their lower bound as editable draft values.
+    assert.deepEqual(await values("reps"), ["8", "8", "8"]);
+    assert.equal((await store()).records.length, 0);
     assert.ok(
       await page
         .locator('.set-row [name="checked"]')
