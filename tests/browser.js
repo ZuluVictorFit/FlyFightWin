@@ -466,7 +466,7 @@ try {
     await pacePage.locator('[data-day="Tuesday"]').click();
     const card = pacePage.locator("section.card").filter({ hasText: "Active pace reference" });
     assert.equal(await card.locator("h2").innerText(), "VDOT 44.8", `week ${w}`);
-    assert.doesNotMatch(await pacePage.locator("#content").innerText(), /VDOT 47\\.2/, `week ${w}`);
+    assert.doesNotMatch(await pacePage.locator("#content").innerText(), /VDOT 47\.2/, `week ${w}`);
     const paces = await pacePage.locator(".compact-target").allInnerTexts();
     assert.ok(paces.length > 0, `week ${w} has live running paces`);
   }
