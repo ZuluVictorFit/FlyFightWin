@@ -1,0 +1,22 @@
+# Compact workout logging
+
+Each exercise has one five-column table: **Set | Weight | Reps | RIR or RPE | ✓**. Running uses time and distance, and carries use weight and yards. Top and back-off rows stay distinct. All primary values are editable in their cells. Rows are 48 px high, with 44 px numeric inputs. The three-set accessory logging area, including the single details toggle, measures 222 px at the tested 390 px mobile viewport. The table keeps all five columns at 320 px without horizontal page scrolling.
+
+RIR is shown when the prescription specifies RIR; otherwise RPE is shown. Both remain optional actual effort, never prescribed effort copied into a performance. **Details & other effort** opens one section for the entire exercise. Choose a set there to edit its alternate effort metric, half-point RPE/range, date, actual variant, unit, device mode and notes. Loading provenance, available increments and progression advice are in that same section. Main-lift suggested loads and actual-top-based back-off guidance remain above the table.
+
+## Edit, review, finish
+
+1. Choose the athlete, week and day. Required working sets are checked by default; optional work is unchecked. Exact prescribed reps, including different top/back-off reps, are prefilled. Rep ranges default to the prescribed lower bound (for example, 3×8–10 opens as 8/8/8), and every set remains editable. These are draft assumptions, not completed performances. No load or actual effort is invented.
+2. Enter a field in any row. It fills that row and later **unfinalized** rows in the same exercise, side and top/back-off group. Weight, reps, RIR and RPE propagate independently. An earlier-row edit can replace a later draft suggestion. It never changes earlier rows or automatically edits a finalized row. Different actual units/variants also stop propagation into that row. Checkmarks, dates, notes, time and distance remain individual.
+3. For example, enter 80 × 8 in Set 1: the next two rows show 80 × 8. Change Set 2 to 70 × 6: Set 1 stays 80 × 8, while Sets 2–3 show 70 × 6. Set 3 can still be edited independently.
+4. Edits autosave locally as drafts. **Undo draft edit** reverses the last input change and all values it propagated, up to 30 changes per workout; Undo survives reload. Undoing all edits removes the empty draft. Drafts do not enter history, strength estimates, accessory progression or completed-workout counts. A back-off preview from an entered top load is explicitly labeled as a draft.
+5. Review every checkmark and value, uncheck anything not performed, then use the single **Finish Workout** button. It validates all checked results before one storage write. Unchecked required sets become skipped, without assumed performance metrics; unchecked optional work creates no completed result. An invalid checked row or failed storage write leaves existing history unchanged.
+6. Finalized rows remain individually editable for deliberate corrections. These are pending drafts until Finish; propagation cannot overwrite other finalized rows. Finalizing a correction retains the previous record in backup revisions. Undo never deletes finalized history.
+
+## Storage and future programming
+
+The optional `drafts` map is separate from finalized `records` in the existing v3 store. Each draft belongs to one athlete/session and retains the applicable prescription revision. Drafts, Undo history and original finalized-record snapshots travel in full JSON backups. Old v2, v3-without-drafts and baseline imports remain supported. Athlete-scoped imports also scope active drafts. Conflicting draft versions remain explicit import conflicts; they do not silently overwrite the current draft.
+
+If history changes through an import after a draft was started, Finish refuses to overwrite it from stale draft values. Export a backup and review/undo the affected draft before finishing. Stale-tab and storage-quota protections remain active. A failed autosave is explicitly reported; preserve visible input before reloading. No original `blueline.log.v2` or `blueline3` storage key is changed.
+
+An active draft freezes its prescription like a started session. Future approved updates apply to untouched sessions; completed performance stays independent of programming. No training prescription, RTS lookup, progression calculation, running reference or athlete baseline was changed by this interface update.

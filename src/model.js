@@ -41,6 +41,57 @@ export function validateStore(d) {
   for (const k of ["records", "imports", "conflicts", "revisions"])
     assert(Array.isArray(d[k]), `Missing ${k}`);
   assert(obj(d.settings), "Invalid settings");
+  if (d.drafts != null) {
+    assert(obj(d.drafts), "Invalid workout drafts");
+    for (const [id, draft] of Object.entries(d.drafts)) {
+      assert(
+        obj(draft) &&
+          draft.sessionId === id &&
+          ["z", "h"].includes(draft.athlete) &&
+          typeof draft.date === "string" &&
+          typeof draft.programVersion === "string" &&
+          obj(draft.prescriptionSnapshot) &&
+          draft.prescriptionSnapshot.id === id &&
+          draft.prescriptionSnapshot.athlete === draft.athlete &&
+          Array.isArray(draft.prescriptionSnapshot.exercises) &&
+          obj(draft.sets) &&
+          Array.isArray(draft.undo) &&
+          draft.undo.length <= 30,
+        "Invalid workout draft",
+      );
+      for (const rows of [draft.sets, ...draft.undo]) {
+        assert(obj(rows), "Invalid draft undo");
+        for (const [key, row] of Object.entries(rows)) {
+          assert(
+            key.startsWith(`set:${id}:`) &&
+              obj(row) &&
+              typeof row.checked === "boolean" &&
+              (row.base === null ||
+                (obj(row.base) &&
+                  row.base.id === key &&
+                  row.base.athlete === draft.athlete)),
+            "Invalid draft row",
+          );
+          for (const field of [
+            "load",
+            "reps",
+            "seconds",
+            "distance",
+            "rpe",
+            "rir",
+            "rpeLow",
+            "rpeHigh",
+            "date",
+            "unit",
+            "variant",
+            "deviceMode",
+            "notes",
+          ])
+            assert(typeof row[field] === "string", "Invalid draft field");
+        }
+      }
+    }
+  }
   for (const [k, v] of Object.entries(d.settings)) {
     if (k.startsWith("step:"))
       assert(
@@ -272,6 +323,27 @@ export function importData(current, input, athletes = ["z", "h"]) {
     if (!result.imports.some((x) => canonical(x) === canonical(e)))
       result.imports.push(clone(e));
   if (source === "v3") {
+    for (const [id, draft] of Object.entries(input.drafts || {}).filter(
+      ([, draft]) => athletes.includes(draft.athlete),
+    )) {
+      result.drafts ||= {};
+      if (!result.drafts[id]) result.drafts[id] = clone(draft);
+      else if (canonical(result.drafts[id]) !== canonical(draft)) {
+        const conflictId = `draft:${id}:${canonical(draft)}`;
+        if (!result.conflicts.some((c) => c.id === conflictId))
+          result.conflicts.push({
+            id: conflictId,
+            draftSession: id,
+            incoming: {
+              id: `draft:${id}`,
+              athlete: draft.athlete,
+              value: clone(draft),
+            },
+            existing: { value: clone(result.drafts[id]) },
+            resolved: false,
+          });
+      }
+    }
     for (const k of ["conflicts", "revisions"])
       for (const r of input[k].filter((r) => {
         const a = (r.record || r.incoming)?.athlete;
@@ -325,7 +397,10 @@ export function resolveConflict(store, index, useIncoming) {
   c.resolved = true;
   c.choice = useIncoming ? "incoming" : "existing";
   if (useIncoming) {
-    if (c.setting) next.settings[c.setting] = clone(c.incoming.value);
+    if (c.draftSession) {
+      next.drafts ||= {};
+      next.drafts[c.draftSession] = clone(c.incoming.value);
+    } else if (c.setting) next.settings[c.setting] = clone(c.incoming.value);
     else return updateRecord(next, clone(c.incoming));
   }
   return next;
@@ -367,6 +442,7 @@ export function setSlots(e) {
 export function sessionStatus(store, s, date) {
   const status = store.records.find((r) => r.id === `session:${s.id}`)?.status;
   if (status) return status;
+  if (store.drafts?.[s.id]) return "draft";
   if (!s.exercises.length) return "rest";
   if (store.records.some((r) => r.type === "set" && r.sessionId === s.id))
     return "started";

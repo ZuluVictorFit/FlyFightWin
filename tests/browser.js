@@ -1,3 +1,4 @@
+import { compactBrowser } from "./compact-browser.js";
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -26,6 +27,36 @@ const shot = async (name) => {
     fullPage: false,
   });
 };
+async function advanced(row) {
+  const card = row.locator(
+    'xpath=ancestor::section[contains(@class,"exercise")]',
+  );
+  await card.locator(".exercise-details").evaluate((e) => (e.open = true));
+  await card
+    .locator(".advanced-slot")
+    .selectOption({ value: await row.getAttribute("data-slot") });
+  return card.locator(".advanced-fields");
+}
+// Leave other finalized results intact; unchecked unfinalized rows are explicit skips.
+async function finishOnly(form) {
+  await page.locator(".set-row").evaluateAll(
+    (forms, target) => {
+      for (const f of forms) {
+        if (f.dataset.e === target.e && f.dataset.slot === target.slot)
+          continue;
+        const check = f.querySelector('[name="checked"]');
+        if (check.checked && f.dataset.finalized !== "true") {
+          check.checked = false;
+          check.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    },
+    await form.evaluate((f) => ({ e: f.dataset.e, slot: f.dataset.slot })),
+  );
+  await form.locator('[name="checked"]').check();
+  await page.locator("#completeSession").click();
+  assert.match(await page.locator("#notice").innerText(), /Workout finished/);
+}
 try {
   await page.goto(base);
   await page.waitForSelector(".exercise");
@@ -43,8 +74,18 @@ try {
     [],
   );
   console.log("PASS axe WCAG A/AA audit on mobile workout");
+  // Ranged reps now prefill their minimum. Explicitly clearing a checked
+  // required row must still block Finish without committing history.
+  const firstBenchRep = page.locator('[data-exercise="c1-incline-dumbbell-bench"] .set-row [name="reps"]').first();
+  assert.equal(await firstBenchRep.inputValue(), "8");
+  await firstBenchRep.fill("");
   await page.locator("#completeSession").click();
-  assert.match(await page.locator("#notice").innerText(), /every required/);
+  assert.match(
+    await page.locator("#notice").innerText(),
+    /Record reps, time or distance/,
+  );
+  assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem("flyfightwin.log.v3")))).records.length, 0);
+  await firstBenchRep.fill("8");
   // Exercise every active session for both athletes and save a synthetic working set.
   let rendered = 0;
   for (const a of ["z", "h"]) {
@@ -70,7 +111,7 @@ try {
           `${s.id} exercise count`,
         );
         assert.equal(
-          await page.locator(".set-form").count(),
+          await page.locator(".set-row").count(),
           work.reduce((n, e) => n + e.sets * (e.unilateral ? 2 : 1), 0),
         );
         assert.equal(
@@ -80,10 +121,8 @@ try {
           true,
           `${s.id} horizontal overflow`,
         );
-        const card = page.locator(".exercise").first(),
-          log = card.locator("details.log");
-        await log.evaluate((e) => (e.open = true));
-        const form = card.locator(".set-form").first();
+        const card = page.locator(".exercise").first();
+        const form = card.locator(".set-row").first();
         await form
           .locator(
             '[name="' +
@@ -95,10 +134,10 @@ try {
               '"]',
           )
           .fill(work[0].kind === "run" ? "300" : "4");
-        await form.locator('button[value="done"]').click();
-        assert.match(
-          await card.locator(".set-head").first().innerText(),
-          /saved/,
+        await finishOnly(form);
+        assert.equal(
+          await card.locator(".set-row").first().getAttribute("data-finalized"),
+          "true",
           s.id,
         );
         if (
@@ -122,12 +161,11 @@ try {
   const main = page
     .locator(".exercise")
     .filter({ has: page.locator("h2", { hasText: "Barbell Z press" }) });
-  const top = main.locator(".set-form").first();
+  const top = main.locator(".set-row").first();
   await top.locator('[name="load"]').fill("100");
   await top.locator('[name="reps"]').fill("5");
-  await top.locator("details").evaluate((e) => (e.open = true));
-  await top.locator('[name="date"]').fill("2026-01-05");
-  await top.locator('button[value="done"]').click();
+  await (await advanced(top)).locator('[name="date"]').fill("2026-01-05");
+  await finishOnly(top);
   assert.match(await main.innerText(), /90–90 lb from saved top set/);
   await page.reload();
   await page.waitForSelector(".exercise");
@@ -137,7 +175,6 @@ try {
   );
   await shot("mobile-main-lift");
   const accessory = page.locator('[data-exercise="c1-incline-dumbbell-bench"]');
-  await accessory.locator("details.log").evaluate((e) => (e.open = true));
   await accessory.evaluate((e) =>
     scrollTo(0, e.getBoundingClientRect().top + scrollY - 16),
   );
@@ -152,9 +189,8 @@ try {
   await page.selectOption("#week", "2");
   await top.locator('[name="load"]').fill("105");
   await top.locator('[name="reps"]').fill("5");
-  await top.locator("details").evaluate((e) => (e.open = true));
-  await top.locator('[name="date"]').fill("2026-01-12");
-  await top.locator('button[value="done"]').click();
+  await (await advanced(top)).locator('[name="date"]').fill("2026-01-12");
+  await finishOnly(top);
   await page.selectOption("#week", "1");
   await page.locator('[data-view="Progress"]').click();
   await page.evaluate(() => scrollTo(0, 0));
@@ -168,7 +204,11 @@ try {
   const path = await download.path();
   const exported = JSON.parse(await fs.readFile(path, "utf8"));
   assert.equal(exported.schema, 3);
-  assert.equal(exported.records.filter((r) => r.type === "set").length, 98);
+  assert.equal(
+    exported.records.filter((r) => r.type === "set" && r.status === "done")
+      .length,
+    98,
+  );
   await page.locator("#importFile").setInputFiles({
     name: "synthetic-backup.json",
     mimeType: "application/json",
@@ -287,34 +327,33 @@ try {
   await page.reload();
   await page.waitForSelector(".exercise");
   const rtsForm = page
-    .locator('[data-exercise="b-barbell-z-press"] .set-form')
+    .locator('[data-exercise="b-barbell-z-press"] .set-row')
     .first();
-  await rtsForm.locator("details").evaluate((e) => (e.open = true));
   await rtsForm.locator('[name="load"]').fill("125");
   await rtsForm.locator('[name="reps"]').fill("5");
   await rtsForm.locator('[name="rpe"]').fill("7.5");
-  await rtsForm.locator('[name="date"]').fill("2026-01-19");
-  await rtsForm.locator('button[value="done"]').click();
+  await (await advanced(rtsForm)).locator('[name="date"]').fill("2026-01-19");
+  await finishOnly(rtsForm);
   assert.match(
     await page
-      .locator('[data-exercise="b-barbell-z-press"] .target')
-      .innerText(),
+      .locator('[data-exercise="b-barbell-z-press"] .loading-explanation')
+      .textContent(),
     /RTS:/,
   );
-  await rtsForm.locator("details").evaluate((e) => (e.open = true));
   await rtsForm.locator('[name="rpe"]').fill("");
-  await rtsForm.locator('[name="rpeLow"]').fill("7");
-  await rtsForm.locator('[name="rpeHigh"]').fill("8");
-  await rtsForm.locator('button[value="done"]').click();
+  await (await advanced(rtsForm)).locator('[name="rpeLow"]').fill("7");
+  await (await advanced(rtsForm)).locator('[name="rpeHigh"]').fill("8");
+  await finishOnly(rtsForm);
   await page.reload();
   await page.waitForSelector(".exercise");
   assert.match(
     await page
-      .locator('[data-exercise="b-barbell-z-press"] .target')
-      .innerText(),
+      .locator('[data-exercise="b-barbell-z-press"] .loading-explanation')
+      .textContent(),
     /actual RPE 7–8/,
   );
   console.log("PASS RTS half-point effort and uncertainty range save/reload");
+  await compactBrowser(browser, base);
   // Isolated first-run migration and archive read-only behavior.
   const privatePage = await context.newPage();
   await privatePage.goto(base);

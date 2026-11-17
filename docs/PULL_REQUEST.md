@@ -1,30 +1,24 @@
-Rebuild FlyFightWin around the approved eight-week program and preserve existing phone histories through a versioned, reversible migration.
+Working-set logging previously required separate vertical forms and per-set saves. This change provides one compact spreadsheet per exercise and a single Finish Workout action.
 
-The static navy/gold application includes all 96 active athlete sessions, 16 rest days, individual working-set/side logging, actual-top-set back-offs, percentage guidance with provenance/RPE caps, accessory progression, running references/logs, exercise trends, separate athletes, and validated JSON merge/rollback. The 28-week archive and nutrition page remain available.
+- Five columns: Set, Weight, Reps, the relevant RIR/RPE metric, and completion checkmark. Running and carries retain their appropriate time/distance fields. One exercise-level details section exposes alternate effort and individual set metadata.
+- Measured mobile geometry: 48 px rows and a 222 px three-set logging area. All five columns fit at 320 px without horizontal scrolling.
+- Weight, reps and actual effort propagate forward independently within the same exercise, side and top/back-off group. Earlier and finalized rows are protected.
+- Required sets start checked; optional sets start unchecked. Exact reps prefill, and rep ranges start at their prescribed lower bound (for example, 8–10 starts at 8); actual effort and loads remain unfilled. Draft autosave and Undo survive reload and full-backup imports.
+- Finish validates all checked rows before one storage write. Direct corrections retain prior finalized records in revisions. Drafts stay separate from performance history, calculations and completed-workout counts.
 
-Program data is separate from rendering, logs and calculations. Approved change requests can target an exercise, one athlete's session/week, or a whole block. Started/completed sessions retain their original program revision and full prescription snapshots. Future updates recalculate upcoming targets without rewriting historical results or the other athlete's prescriptions.
+Validation:
 
-Review fixes pin CI to Ubuntu 24.04 and use the supplied RTS chart for eligible submaximal barbell estimates, including half-point RPE and uncertainty ranges. See [loading method](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/LOADING_METHOD.md). Existing prescriptions and historical records are unchanged.
+- `npm test`: 60 passed; none failed or skipped, including all 47 previous regressions.
+- Complete browser suite: all 96 active sessions rendered and finalized a synthetic working result; every working-set/side editor checked. Mobile 390 px and 320 px, desktop 1440 px, axe WCAG A/AA, backup/import, program snapshots, RTS ranges, legacy storage protection and compact-table interactions passed.
+- Private original exports and newer baselines passed lossless migration tests outside the repository.
+- Approved program data, RTS lookup, calculation module, archive and nutrition page are byte-for-byte unchanged from the approved baseline. No private fixtures are committed.
 
-Validation performed locally:
+Review the [logging behavior](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/COMPACT_LOGGING.md) and [validation details](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/VALIDATION.md).
 
-- 47 automated tests passed, none failed or skipped.
-- Browser suite rendered and saved a working set in all 96 active sessions; checked every working-set editor, reload persistence, top/back-off calculation, plan, progress/history, backup restore and legacy protection.
-- Browser regression confirmed a data-only revision preserves saved sessions and applies revised targets to unstarted sessions.
-- Independent PDF audit matched all 566 rows / 2,830 cells across 48 daily pages; six overview pages retained.
-- Supplied private phone exports, combined backup and newer baselines passed lossless/idempotent migration tests outside the repository.
-- Mobile 390×844, narrow 320×740 and desktop 1440×1000 checked. axe WCAG A/AA audit reported zero violations; minimum tested text/surface contrast is 6.01:1.
+Screenshots contain synthetic QA values only: 80×8, 70×6, 70×6.
 
-Review artifacts:
+![390 px mobile compact table](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/screenshots/mobile-compact-table.png?raw=true)
 
-- [Phone migration and rollback](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/MIGRATION.md)
-- [Future programming update workflow](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/PROGRAM_UPDATES.md)
-- [Validation details and limitations](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/VALIDATION.md)
-- [All screenshots](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/SCREENSHOTS.md)
-- [Prescription/equipment review items](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/REVIEW_REQUIRED.md)
+![320 px mobile compact table](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/compact-logging-table/docs/screenshots/mobile-compact-table-320.png?raw=true)
 
-![Phone main-lift logging — synthetic test data](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/screenshots/mobile-main-lift.png?raw=true)
-
-![Desktop progress — synthetic test data](https://github.com/ZuluVictorFit/FlyFightWin/blob/feat/eight-week-navy-gold/docs/screenshots/desktop-progress.png?raw=true)
-
-Private athlete fixtures and reference branding artwork are excluded. Screenshots contain synthetic QA data only. There is no live phone synchronization, paid service or health integration. Physical iPhone Safari/WebKit and real VOLTRA firmware were not tested; production Pages deployment was not performed. Heavy-carry equipment, VOLTRA mode availability, deload-volume convention and active VDOT selection remain explicit review items. No merge or deployment is requested by this PR creation step.
+Physical iPhone Safari was not tested; mobile validation uses Chromium emulation. Phone data migration remains a separate user-verified action. No merge or deployment is authorized by this PR.

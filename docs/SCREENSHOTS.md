@@ -4,6 +4,9 @@ These are actual Chromium renders of the redesigned application. Every displayed
 
 | View | Screenshot |
 |---|---|
+| Compact mobile table (390 px) | [Three-set table](screenshots/mobile-compact-table.png) |
+| Compact mobile table (320 px) | [Narrow table](screenshots/mobile-compact-table-320.png) |
+| Compact desktop table | [Desktop logging](screenshots/desktop-compact-logging.png) |
 | Phone workout | [Today](screenshots/mobile-today.png) |
 | Main-lift loading and recorded top set | [Top set/back-offs](screenshots/mobile-main-lift.png) |
 | Accessory set logging | [Accessory](screenshots/mobile-accessory.png) |
@@ -15,6 +18,6 @@ These are actual Chromium renders of the redesigned application. Every displayed
 | Week 4 reduced volume | [Monday](screenshots/mobile-week4-monday.png), [Wednesday](screenshots/mobile-week4-wednesday.png), [Friday](screenshots/mobile-week4-friday.png) |
 | Week 8 reduced volume | [Monday](screenshots/mobile-week8-monday.png), [Wednesday](screenshots/mobile-week8-wednesday.png), [Friday](screenshots/mobile-week8-friday.png) |
 
-![Mobile workout](screenshots/mobile-today.png)
+![Compact mobile logging](screenshots/mobile-compact-table.png)
 
 ![Desktop progress](screenshots/desktop-progress.png)
