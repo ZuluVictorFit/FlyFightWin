@@ -23,6 +23,19 @@ export const fresh = () => ({
   settings: {},
   revisions: [],
 });
+// A coach-approved baseline revision supersedes any older pace pin once.
+// Preserve the old choice in athlete-scoped settings; subsequent manual choices win.
+export function adoptPaceRevision(data, policies) {
+  const revision = policies?.z?.referenceRevision;
+  if (!revision || data.settings["pace:z:referenceRevision"] === revision)
+    return data;
+  const next = clone(data);
+  next.settings["pace:z:previousChoice"] = data.settings["pace:z"] || "";
+  next.settings["pace:z"] = "program";
+  next.settings["pace:z:referenceRevision"] = revision;
+  return next;
+}
+
 export function safeParse(text) {
   assert(text.length < 12000000, "File exceeds 12 MB.");
   return JSON.parse(text, (k, v) => {
