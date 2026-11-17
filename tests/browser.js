@@ -426,6 +426,58 @@ try {
   assert.match(await privatePage.locator(".stats").innerText(), /38\.0/);
   await privatePage.close();
   console.log("PASS updated two-mile pace adoption, future manual override and legacy-key preservation");
+  // Saved Tuesday performances can retain a historical VDOT, but the live
+  // workout targets must use the CURRENT athlete reference in all eight weeks.
+  const paceContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const pacePage = await paceContext.newPage();
+  await pacePage.goto(base);
+  await pacePage.waitForSelector(".exercise");
+  await pacePage.evaluate((master) => {
+    const d = JSON.parse(localStorage.getItem("flyfightwin.log.v3"));
+    d.settings["pace:z"] = "program";
+    for (const session of master.sessions.filter((s) => s.athlete === "z" && s.day === "Tuesday")) {
+      const work = session.exercises.find((e) => e.kind === "run" && !e.warmup);
+      const snapshot = structuredClone(session);
+      if (session.week <= 2) snapshot.exercises.find((e) => e.id === work.id).intensity = "T (VDOT 47.2)";
+      d.records.push({
+        id: `set:${session.id}:${work.id}:0`,
+        type: "set", athlete: "z", sessionId: session.id,
+        exerciseId: work.exerciseId, variant: work.exerciseId,
+        slot: 0, side: "", unit: "running", distanceUnit: "mi",
+        status: "done", seconds: 300, date: "2026-11-01",
+        paceReference: { value: 47.2, source: "historical logged pace" },
+      });
+      if (session.week <= 2) d.records.push({
+        id: `session:${session.id}`, type: "session", athlete: "z",
+        sessionId: session.id, status: "started", date: "2026-11-01",
+        programVersion: master.id, blockId: master.blockId,
+        prescriptionSnapshot: snapshot,
+      });
+    }
+    localStorage.setItem("flyfightwin.log.v3", JSON.stringify(d));
+  }, program);
+  const originalPaceRecords = await pacePage.evaluate(() =>
+    JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records
+  );
+  await pacePage.reload();
+  await pacePage.waitForSelector(".exercise");
+  for (let w = 1; w <= 8; w++) {
+    await pacePage.selectOption("#week", String(w));
+    await pacePage.locator('[data-day="Tuesday"]').click();
+    const card = pacePage.locator("section.card").filter({ hasText: "Active pace reference" });
+    assert.equal(await card.locator("h2").innerText(), "VDOT 44.8", `week ${w}`);
+    assert.doesNotMatch(await pacePage.locator("#content").innerText(), /VDOT 47\\.2/, `week ${w}`);
+    const paces = await pacePage.locator(".compact-target").allInnerTexts();
+    assert.ok(paces.length > 0, `week ${w} has live running paces`);
+  }
+  assert.deepEqual(
+    await pacePage.evaluate(() => JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records),
+    originalPaceRecords
+  );
+  await pacePage.locator('[data-athlete="h"]').click();
+  assert.match(await pacePage.locator("#content").innerText(), /Baseline pending/);
+  await paceContext.close();
+  console.log("PASS current 44.8 VDOT on all Zack Tuesdays despite historical 47.2 snapshots; records and Hannah unchanged");
   assert.deepEqual(errors, []);
   console.log("PASS no application JavaScript errors");
 } finally {
