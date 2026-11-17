@@ -74,11 +74,18 @@ try {
     [],
   );
   console.log("PASS axe WCAG A/AA audit on mobile workout");
+  // Ranged reps now prefill their minimum. Explicitly clearing a checked
+  // required row must still block Finish without committing history.
+  const firstBenchRep = page.locator('[data-exercise="c1-incline-dumbbell-bench"] .set-row [name="reps"]').first();
+  assert.equal(await firstBenchRep.inputValue(), "8");
+  await firstBenchRep.fill("");
   await page.locator("#completeSession").click();
   assert.match(
     await page.locator("#notice").innerText(),
     /Record reps, time or distance/,
   );
+  assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem("flyfightwin.log.v3")))).records.length, 0);
+  await firstBenchRep.fill("8");
   // Exercise every active session for both athletes and save a synthetic working set.
   let rendered = 0;
   for (const a of ["z", "h"]) {
