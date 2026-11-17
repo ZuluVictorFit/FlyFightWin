@@ -1,3 +1,4 @@
+import * as R from "./running.js";
 import * as D from "./drafts.js";
 import { rtsEstimate } from "./rts.js";
 import * as M from "./model.js";
@@ -165,18 +166,19 @@ function exercise(s, e) {
   return `<section class="card exercise" data-exercise="${esc(e.id)}">
     <header class="compact-heading"><h2><span class="exercise-group">${esc(e.group)}</span>${esc(e.name)}${e.optional ? '<small class="optional-label">Optional</small>' : ""}</h2>
       <p class="prescription">${e.top || /\d+\s*x\s*\d/.test(e.prescription) ? "" : `${e.sets} × `}${esc(e.prescription)}</p>
-      <p class="intensity">${esc(displayIntensity)} · Rest ${esc(e.rest)}</p></header>
+      <p class="intensity">${esc(displayIntensity)} · Rest ${esc(e.rest)}</p>${run && R.planTiming(e) ? `<p class="intensity">${esc(R.planTiming(e))}</p>` : ""}</header>
     ${paceType && paceRef.value ? `<p class="compact-target">${paceType} · ${C.clock(C.pace(paceRef.value, paceType))}/mi</p>` : ""}
     ${e.device ? '<p class="warning">Verify mode, firmware and anchor. Record device settings; simulated yards are not physical sled distances.</p>' : ""}
     ${/heavy sandbag front/.test(e.name) ? '<p class="warning">Confirm an appropriate heavy front-carry implement. Do not silently substitute a light bag or another implement.</p>' : ""}
     ${/Leg press/.test(e.name) && athlete === "h" ? '<p class="hint">Equipment may be unavailable at home. This finisher remains optional.</p>' : ""}
     ${primary ? `<div class="target compact-target"><strong>${load.range ? `${load.range.join("–")} ${e.loadUnit} suggested` : "RPE-guided ramp"}${e.rpeCap ? ` · cap ${e.rpeCap}` : ""}</strong>${e.top ? `<p><b>Back-offs:</b> <span class="backoff-target">${esc(backoffText(s, e))}</span></p>` : ""}</div>` : ""}
-    <div class="logging-area"><table class="set-table" aria-label="${esc(e.name)} working sets">
+    ${run && R.isTimeTrial(e) ? `<div class="trial-finish" data-e="${esc(e.id)}" data-slot="0"><label>Actual finish time · 2 mi (M:SS)${elapsedInput(D.row(store, s, e, all[0], today()))}</label></div>` : ""}
+    <div class="logging-area"><table class="set-table ${run ? "running-table" : ""}" aria-label="${esc(e.name)} working sets">
       <colgroup><col class="col-set"><col><col class="col-reps"><col class="col-effort"><col class="col-check"></colgroup>
-      <thead><tr><th scope="col">Set</th><th scope="col">${run ? "Time · s" : `Weight<small>${esc(e.loadUnit)}</small>`}</th><th scope="col">${run ? `Dist · ${/\bm\b/.test(e.prescription) ? "m" : "mi"}` : distance ? "Yards" : /sequences/.test(e.prescription) ? "Seq" : "Reps"}</th><th scope="col">${effort.toUpperCase()}</th><th scope="col"><span aria-hidden="true">✓</span><span class="sr-only">Completed</span></th></tr></thead>
+      <thead><tr><th scope="col">Set</th><th scope="col">${run ? "Distance" : `Weight<small>${esc(e.loadUnit)}</small>`}</th><th scope="col">${run ? "Avg Pace<small>/mi</small>" : distance ? "Yards" : /sequences/.test(e.prescription) ? "Seq" : "Reps"}</th><th scope="col">${run ? "HR<small>bpm</small>" : effort.toUpperCase()}</th><th scope="col"><span aria-hidden="true">✓</span><span class="sr-only">Completed</span></th></tr></thead>
       <tbody>${all.map((slot) => setRow(s, e, slot)).join("")}</tbody></table>
       <details class="exercise-details"><summary>Details & other effort</summary>
-        <p class="hint">${rows.length}/${all.length} finalized or skipped. Check only completed work before Finish Workout. Exact reps are prefilled; effort is actual, optional and never assumed. A direct edit to a finalized set is a pending correction; the old result remains in history until Finish, and its prior version is retained.</p>
+        <p class="hint">${rows.length}/${all.length} finalized or skipped. Check only completed work before Finish Workout. ${run ? "Enter each work interval’s measured Watch values, not whole-workout averages. Pace is per mile, even for meter intervals. HR and elapsed time are optional except the actual time-trial finish. Prescribed durations stay separate; nothing is inferred from distance or pace." : "Exact reps are prefilled; effort is actual, optional and never assumed."} A direct edit to a finalized set is a pending correction; the old result remains in history until Finish, and its prior version is retained.</p>
         <label>Details for set<select class="advanced-slot">${all.map((slot) => `<option value="${slot.key}">${slotLabel(e, slot)}</option>`).join("")}</select></label>
         <div class="advanced-editor">${advancedFields(s, e, all[0])}</div>
         ${primary ? `<div class="loading-explanation">${load.band ? `<p class="hint">Initial fallback band ${load.band.join("–")}% of unadjusted Epley e1RM${load.referenceRange ? `: ${load.referenceRange.join("–")} lb from the unadjusted estimate (~${Math.round(load.max)} lb). Fallback reference only; RTS takes priority.` : ""} · RPE cap ${e.rpeCap} takes priority.</p>` : ""}<p class="hint">${esc(load.source)}</p></div>` : ""}
@@ -197,11 +199,20 @@ function setRow(s, e, slot) {
     saved = store.records.some((r) => r.id === setId(s, e, slot));
   return `<tr class="set-row" data-e="${esc(e.id)}" data-slot="${slot.key}" data-finalized="${saved}">
     <th scope="row" title="${e.top && slot.index ? `Back-off ${slot.index}` : slotLabel(e, slot)}">${slotLabel(e, slot)}</th>
-    <td>${cell(run ? "seconds" : "load", `${label}, ${run ? "time in seconds" : e.loadUnit}`, run ? r.seconds : r.load, run ? 'min="0"' : "")}</td>
-    <td>${cell(run || distance ? "distance" : "reps", `${label}, ${run || distance ? "distance" : "reps"}`, run || distance ? r.distance : r.reps, 'min="0"')}</td>
-    <td>${cell(effort, `${label}, actual ${effort.toUpperCase()}`, r[effort], `min="${effort === "rpe" ? 1 : 0}" max="10"`)}</td>
+    ${
+      run
+        ? `<td class="distance-cell">${cell("distance", `${label}, actual distance in ${r.distanceUnit}`, r.distance, 'min="0"')}<small class="distance-unit" aria-hidden="true">${esc(r.distanceUnit)}</small></td>
+    <td><input class="pace-input" name="pace" type="text" inputmode="text" autocomplete="off" aria-label="${esc(label)}, actual average pace per mile, M:SS" placeholder="M:SS" value="${esc(r.pace)}"></td>
+    <td>${cell("averageHr", `${label}, actual average heart rate in bpm (optional)`, r.averageHr, 'min="20" max="300"')}</td>`
+        : `<td>${cell("load", `${label}, ${e.loadUnit}`, r.load)}</td>
+    <td>${cell(distance ? "distance" : "reps", `${label}, ${distance ? "distance" : "reps"}`, distance ? r.distance : r.reps, 'min="0"')}</td>
+    <td>${cell(effort, `${label}, actual ${effort.toUpperCase()}`, r[effort], `min="${effort === "rpe" ? 1 : 0}" max="10"`)}</td>`
+    }
     <td><label class="cell-check"><input name="checked" type="checkbox" aria-label="${esc(label)}, completed · include on Finish" ${r.checked ? "checked" : ""}></label></td>
   </tr>`;
+}
+function elapsedInput(r) {
+  return `<input name="elapsedTime" type="text" inputmode="text" autocomplete="off" placeholder="M:SS or H:MM:SS" value="${esc(r.elapsedTime ?? R.formatElapsed(r.seconds))}">`;
 }
 function advancedFields(s, e, slot) {
   const r = D.row(store, s, e, slot, today()),
@@ -209,7 +220,8 @@ function advancedFields(s, e, slot) {
     run = e.kind === "run",
     distance = !run && e.prescription.includes("yd");
   return `<div data-slot="${slot.key}" data-e="${esc(e.id)}" class="advanced-fields"><div class="fields two">
-    ${field(alternate, `Actual ${alternate.toUpperCase()} (optional)`, r[alternate], "number", `min="${alternate === "rpe" ? 1 : 0}" max="10" step="0.5"`)}
+    ${run ? field("rpe", "Actual RPE (optional)", r.rpe, "number", 'min="1" max="10" step="0.5"') + field("rir", "Actual RIR (optional)", r.rir, "number", 'min="0" max="10" step="0.5"') : field(alternate, `Actual ${alternate.toUpperCase()} (optional)`, r[alternate], "number", `min="${alternate === "rpe" ? 1 : 0}" max="10" step="0.5"`)}
+    ${run ? `${!R.isTimeTrial(e) ? `<label>Actual elapsed time (optional)${elapsedInput(r)}</label>` : ""}<label>Actual distance unit<select name="distanceUnit">${["mi", "m"].map((u) => `<option value="${u}" ${u === r.distanceUnit ? "selected" : ""}>${u}</option>`).join("")}</select></label>` : ""}
     ${field("date", "Performed date", r.date, "date", "required")}
     ${field("rpeLow", "Actual RPE range · low", r.rpeLow, "number", 'min="1" max="10" step="0.5"')}
     ${field("rpeHigh", "Actual RPE range · high", r.rpeHigh, "number", 'min="1" max="10" step="0.5"')}
@@ -287,6 +299,9 @@ function plan() {
     .sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day));
   return `<p class="eyebrow">The training week</p><h1>Consistency, with intent.</h1><p class="muted">Your approved sessions, organized by week.</p><section class="card"><label>Block start date · Week 1 Monday<input id="startDate" type="date" value="${esc(store.settings.startDate)}"></label><p class="hint">Choose your own date. This schedules the plan; it does not mark past sessions completed.</p></section><div class="plan-grid">${ss.map((s) => `<button class="card" data-plan="${s.day}"><span class="eyebrow">${s.day} · ${M.sessionStatus(store, s, dateFor(s))}</span><strong>${esc(s.title)}</strong><small>${dateFor(s) || "No date selected"} · ${s.exercises.filter((e) => !e.warmup).length} exercises</small></button>`).join("")}</div><details class="card"><summary>Block progression · original source overview</summary>${program.overview.map((o) => `<details><summary>PDF page ${o.page}</summary><pre>${esc(o.text)}</pre></details>`).join("")}</details>`;
 }
+function runningResult(r) {
+  return `${r.distance ?? "—"} ${esc(r.distanceUnit || "distance unit unknown")} · ${r.averagePaceSecondsPerMile == null ? "Pace unknown" : `${R.formatPace(r.averagePaceSecondsPerMile)}/mi`} · ${r.averageHr == null ? "HR unknown" : `${r.averageHr} bpm`} · ${r.seconds == null ? "Elapsed time unrecorded" : `${R.formatElapsed(r.seconds)} elapsed`}`;
+}
 function progress() {
   const refs = C.runReferences(store, athlete),
     active = C.activeReference(store, athlete, program.paceDefaults),
@@ -329,7 +344,7 @@ function progress() {
           .reverse()
           .map(
             (r) =>
-              `<li><b>${esc(r.date || "Date unknown")}</b> · ${r.load ?? "—"} ${esc(r.unit)} × ${r.reps ?? "—"}<p>RPE ${r.rpeRange?.join("–") ?? r.rpe ?? "unknown"} · RIR ${r.rir ?? "unknown"}${rtsEstimate(r) || (C.supportsMax(r.variant) && C.e1rm(r.load, r.reps)) ? ` · ${rtsEstimate(r) ? `RTS estimated 1RM ${rtsEstimate(r).range.map(Math.round).join("–")} lb` : `Epley fallback reference ${Math.round(C.e1rm(r.load, r.reps))} lb (unadjusted)`}` : ""}</p><small>${esc(r.provenance || "Performed; entered in this app")} · ${esc(r.notes)}</small></li>`,
+              `<li><b>${esc(r.date || "Date unknown")}</b> · ${r.unit === "running" ? runningResult(r) : `${r.load ?? "—"} ${esc(r.unit)} × ${r.reps ?? "—"}`}<p>RPE ${r.rpeRange?.join("–") ?? r.rpe ?? "unknown"} · RIR ${r.rir ?? "unknown"}${rtsEstimate(r) || (C.supportsMax(r.variant) && C.e1rm(r.load, r.reps)) ? ` · ${rtsEstimate(r) ? `RTS estimated 1RM ${rtsEstimate(r).range.map(Math.round).join("–")} lb` : `Epley fallback reference ${Math.round(C.e1rm(r.load, r.reps))} lb (unadjusted)`}` : ""}</p><small>${esc(r.provenance || "Performed; entered in this app")} · ${esc(r.notes)}</small></li>`,
           )
           .join("")}</ul>`
       : '<p class="empty">Your first recorded set starts this history.</p>'
@@ -349,7 +364,7 @@ function history() {
          .reverse()
          .map(
            (r) =>
-             `<li><b>${esc(r.type === "set" ? r.variant.replaceAll("-", " ") : r.type === "legacy" ? `Legacy ${r.category} · ${r.key}` : r.type)}</b><p>${r.type === "set" ? `${esc(r.date)} · ${r.status} · ${r.load ?? "—"} ${esc(r.unit)} · ${r.reps ?? "—"} reps · ${r.seconds ?? "—"} sec` : esc(r.provenance || r.status || r.date)}</p>${r.type === "set" && r.sessionId !== "historical-baseline" ? `<button data-edit="${esc(r.sessionId)}">Edit session</button>` : ""}<details><summary>Original details</summary><pre>${esc(JSON.stringify(r, null, 2))}</pre></details></li>`,
+             `<li><b>${esc(r.type === "set" ? r.variant.replaceAll("-", " ") : r.type === "legacy" ? `Legacy ${r.category} · ${r.key}` : r.type)}</b><p>${r.type === "set" ? `${esc(r.date)} · ${r.status} · ${r.unit === "running" ? runningResult(r) : `${r.load ?? "—"} ${esc(r.unit)} · ${r.reps ?? "—"} reps · ${r.seconds ?? "—"} sec`}` : esc(r.provenance || r.status || r.date)}</p>${r.type === "set" && r.sessionId !== "historical-baseline" ? `<button data-edit="${esc(r.sessionId)}">Edit session</button>` : ""}<details><summary>Original details</summary><pre>${esc(JSON.stringify(r, null, 2))}</pre></details></li>`,
          )
          .join("")}</ul>`
      : '<p class="empty">No completed activity has been invented. Import your backup or record your first session.</p>'
@@ -481,11 +496,25 @@ function bind() {
                 (x) => x.key === target.dataset.slot,
               ),
               values = D.row(store, s, e, targetSlot, today());
+            const unitLabel = target.querySelector(".distance-unit");
+            if (unitLabel) {
+              unitLabel.textContent = values.distanceUnit;
+              target
+                .querySelector('[name="distance"]')
+                .setAttribute(
+                  "aria-label",
+                  `${e.name}, ${slotLabel(e, targetSlot)}, actual distance in ${values.distanceUnit}`,
+                );
+            }
             target.querySelectorAll("[name]").forEach((control) => {
               if (control === input) return;
               if (control.type === "checkbox")
                 control.checked = values[control.name];
-              else control.value = values[control.name] ?? "";
+              else
+                control.value =
+                  control.name === "elapsedTime"
+                    ? (values.elapsedTime ?? R.formatElapsed(values.seconds))
+                    : (values[control.name] ?? "");
             });
           });
         const backoff = form
@@ -615,7 +644,9 @@ window.addEventListener("storage", (e) => {
     notify("Data changed in another tab. Reload before editing.");
 });
 try {
-  program = validateProgram(await (await fetch("data/program.json", { cache: "no-store" })).json());
+  program = validateProgram(
+    await (await fetch("data/program.json", { cache: "no-store" })).json(),
+  );
   store = M.readStore(localStorage);
   expected = localStorage.getItem(M.KEY);
   const aligned = M.adoptPaceRevision(store, program.paceDefaults);

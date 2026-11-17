@@ -1,5 +1,12 @@
 import * as M from "./model.js";
 import { sessionRecord } from "./program.js";
+import {
+  defaultDistanceUnit,
+  formatPace,
+  parsePace,
+  parseElapsed,
+  isTimeTrial,
+} from "./running.js";
 
 export const setId = (s, e, slot) => `set:${s.id}:${e.id}:${slot.key}`;
 const numeric = ["load", "reps", "seconds", "distance", "rpe", "rir"];
@@ -13,6 +20,10 @@ const fields = [
   "deviceMode",
   "notes",
   "checked",
+  "pace",
+  "averageHr",
+  "distanceUnit",
+  "elapsedTime",
 ];
 const propagated = new Set(["load", "reps", "rpe", "rir", "rpeLow", "rpeHigh"]);
 const group = (e, slot) =>
@@ -22,8 +33,12 @@ export function prescribedReps(e, slot) {
   if (e.top) return slot.index === 0 ? e.top.reps : e.top.backReps;
   // A rep range defaults to its prescribed minimum; this is a draft assumption,
   // not a completed result, and each set remains individually editable.
-  if (Array.isArray(e.repRange) && e.repRange.length === 2 &&
-      Number.isInteger(e.repRange[0]) && e.repRange[0] > 0)
+  if (
+    Array.isArray(e.repRange) &&
+    e.repRange.length === 2 &&
+    Number.isInteger(e.repRange[0]) &&
+    e.repRange[0] > 0
+  )
     return e.repRange[0];
   const sequences = e.prescription.match(/^(\d+) out-and-back sequences$/);
   return sequences ? Number(sequences[1]) : null;
@@ -33,8 +48,17 @@ export function row(store, s, e, slot, date) {
   const id = setId(s, e, slot),
     saved = store.records.find((r) => r.id === id);
   const draft = store.drafts?.[s.id];
-  if (draft?.sets[id]) return M.clone(draft.sets[id]);
+  const running =
+    e.kind === "run"
+      ? {
+          pace: formatPace(saved?.averagePaceSecondsPerMile),
+          averageHr: String(saved?.averageHr ?? ""),
+          distanceUnit: saved?.distanceUnit || defaultDistanceUnit(e),
+        }
+      : {};
+  if (draft?.sets[id]) return { ...running, ...M.clone(draft.sets[id]) };
   const value = {
+    ...running,
     checked: saved ? saved.status === "done" : !e.optional,
     date: saved?.date || draft?.date || date,
     unit: saved?.unit || (e.kind === "run" ? "running" : e.loadUnit),
@@ -83,7 +107,10 @@ export function editDraft(store, program, s, e, slot, field, value, date) {
       source = target.key === slot.key;
     if (
       !source &&
-      (!propagated.has(field) ||
+      (!(
+        propagated.has(field) ||
+        (e.kind === "run" && ["distance", "pace"].includes(field))
+      ) ||
         target.index < slot.index ||
         group(e, target) !== group(e, slot))
     )
@@ -94,6 +121,7 @@ export function editDraft(store, program, s, e, slot, field, value, date) {
     if (!source) {
       const origin = row(next, s, e, slot, date);
       if (v.variant !== origin.variant || v.unit !== origin.unit) continue;
+      if (e.kind === "run" && v.distanceUnit !== origin.distanceUnit) continue;
     }
     v[field] = value;
     // Single RPE and an RPE interval are alternative representations of effort.
@@ -143,8 +171,7 @@ export function finishWorkout(store, program, s, date, paceReference) {
         variant: v.variant.trim() || (!v.checked ? e.exerciseId : ""),
         date: v.date || (!v.checked ? date : ""),
         unit: v.unit,
-        distanceUnit:
-          e.kind === "run" ? (/\bm\b/.test(e.prescription) ? "m" : "mi") : "yd",
+        distanceUnit: e.kind === "run" ? v.distanceUnit : "yd",
         deviceMode: v.deviceMode || null,
         notes:
           v.notes ||
@@ -170,6 +197,22 @@ export function finishWorkout(store, program, s, date, paceReference) {
       for (const k of numeric)
         r[k] = !v.checked || v[k] === "" ? null : Number(v[k]);
       try {
+        if (e.kind === "run") {
+          r.runMetricsVersion = 1;
+          r.averagePaceSecondsPerMile = v.checked ? parsePace(v.pace) : null;
+          r.averageHr =
+            v.checked && v.averageHr !== "" ? Number(v.averageHr) : null;
+          if (v.elapsedTime != null) {
+            r.seconds = v.checked ? parseElapsed(v.elapsedTime) : null;
+            r.elapsedTimeSource = r.seconds == null ? null : "recorded";
+          } else if (old?.elapsedTimeSource)
+            r.elapsedTimeSource = old.elapsedTimeSource;
+          else if (!old && r.seconds != null) r.elapsedTimeSource = "recorded";
+          if (v.checked && isTimeTrial(e) && !(r.seconds > 0))
+            throw Error(
+              "Enter the actual two-mile finishing time; pace is not a substitute.",
+            );
+        }
         if (
           !/^\d{4}-\d{2}-\d{2}$/.test(r.date) ||
           isNaN(Date.parse(r.date)) ||

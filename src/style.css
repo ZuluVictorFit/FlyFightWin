@@ -748,3 +748,39 @@ dialog::backdrop {
 .set-table td:last-child {
   padding: 0;
 }
+.running-table .col-reps {
+  width: 68px;
+}
+.running-table .col-effort {
+  width: 48px;
+}
+.running-table .pace-input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  padding: 2px 3px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 16px;
+}
+.distance-cell {
+  position: relative;
+}
+.running-table .distance-cell input {
+  padding-right: 22px;
+}
+.distance-unit {
+  position: absolute;
+  right: 7px;
+  top: 16px;
+  font-size: 0.65rem;
+  pointer-events: none;
+}
+.trial-finish {
+  margin: 8px 0;
+}
+.trial-finish label {
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+}
