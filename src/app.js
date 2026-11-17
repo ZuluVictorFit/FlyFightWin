@@ -616,6 +616,8 @@ try {
   program = validateProgram(await (await fetch("data/program.json")).json());
   store = M.readStore(localStorage);
   expected = localStorage.getItem(M.KEY);
+  const aligned = M.adoptPaceRevision(store, program.paceDefaults);
+  if (aligned !== store) save(aligned);
   render();
 } catch (e) {
   $("#app").innerHTML =
