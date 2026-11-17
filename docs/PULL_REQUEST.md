@@ -3,7 +3,7 @@ Working-set logging previously required separate vertical forms and per-set save
 - Five columns: Set, Weight, Reps, the relevant RIR/RPE metric, and completion checkmark. Running and carries retain their appropriate time/distance fields. One exercise-level details section exposes alternate effort and individual set metadata.
 - Measured mobile geometry: 48 px rows and a 222 px three-set logging area. All five columns fit at 320 px without horizontal scrolling.
 - Weight, reps and actual effort propagate forward independently within the same exercise, side and top/back-off group. Earlier and finalized rows are protected.
-- Required sets start checked; optional sets start unchecked. Exact prescribed reps prefill, while ranges and unknown actual effort stay unfilled. Draft autosave and Undo survive reload and full-backup imports.
+- Required sets start checked; optional sets start unchecked. Exact reps prefill, and rep ranges start at their prescribed lower bound (for example, 8–10 starts at 8); actual effort and loads remain unfilled. Draft autosave and Undo survive reload and full-backup imports.
 - Finish validates all checked rows before one storage write. Direct corrections retain prior finalized records in revisions. Drafts stay separate from performance history, calculations and completed-workout counts.
 
 Validation:
