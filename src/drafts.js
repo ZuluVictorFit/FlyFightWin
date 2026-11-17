@@ -20,7 +20,11 @@ const group = (e, slot) =>
 
 export function prescribedReps(e, slot) {
   if (e.top) return slot.index === 0 ? e.top.reps : e.top.backReps;
-  if (e.repRange?.[0] === e.repRange?.[1] && e.repRange) return e.repRange[0];
+  // A rep range defaults to its prescribed minimum; this is a draft assumption,
+  // not a completed result, and each set remains individually editable.
+  if (Array.isArray(e.repRange) && e.repRange.length === 2 &&
+      Number.isInteger(e.repRange[0]) && e.repRange[0] > 0)
+    return e.repRange[0];
   const sequences = e.prescription.match(/^(\d+) out-and-back sequences$/);
   return sequences ? Number(sequences[1]) : null;
 }
