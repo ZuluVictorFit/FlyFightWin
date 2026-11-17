@@ -393,8 +393,36 @@ try {
     await privatePage.evaluate(() => window.localStorage.getItem("blueline3")),
     '{"wk":7,"day":"WED"}',
   );
+  // A browser pinned to a historical mile value must adopt the newly approved
+  // two-mile baseline exactly once, without rewriting any training records.
+  await privatePage.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem("flyfightwin.log.v3"));
+    d.settings["pace:z"] = "legacy:z:tt:4";
+    delete d.settings["pace:z:referenceRevision"];
+    delete d.settings["pace:z:previousChoice"];
+    localStorage.setItem("flyfightwin.log.v3", JSON.stringify(d));
+  });
+  await privatePage.goto(base);
+  await privatePage.waitForSelector(".exercise");
+  await privatePage.locator('[data-view="Progress"]').click();
+  const adopted = await privatePage.evaluate(() =>
+    JSON.parse(localStorage.getItem("flyfightwin.log.v3")),
+  );
+  assert.equal(adopted.settings["pace:z"], "program");
+  assert.equal(adopted.settings["pace:z:previousChoice"], "legacy:z:tt:4");
+  assert.ok(adopted.settings["pace:z:referenceRevision"]);
+  assert.equal(adopted.records.length, 2);
+  assert.match(await privatePage.locator(".stats").innerText(), /44\.8/);
+  assert.equal(
+    await privatePage.evaluate(() => localStorage.getItem("blueline.log.v2")),
+    original,
+  );
+  await privatePage.locator("#paceReference").selectOption("legacy:z:tt:4");
+  await privatePage.reload();
+  await privatePage.locator('[data-view="Progress"]').click();
+  assert.match(await privatePage.locator(".stats").innerText(), /38\.0/);
   await privatePage.close();
-  console.log("PASS legacy auto-migration and archive protects original keys");
+  console.log("PASS updated two-mile pace adoption, future manual override and legacy-key preservation");
   assert.deepEqual(errors, []);
   console.log("PASS no application JavaScript errors");
 } finally {
