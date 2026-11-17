@@ -21,6 +21,7 @@ npm run test:browser
 - `data/program.json`: one validated program master, with all 96 active athlete sessions, 16 rest days, 566 exercise rows, six source overview pages and the source PDF SHA-256. Each row retains source wording, grouping, order, rest, optional status and load metadata.
 - `src/program.js`: runtime schema/integrity validation. `scripts/extract_program.py` reconstructs program rows from PDF coordinates using PyMuPDF; `scripts/audit_pdf.py` independently verifies every cell with pdfplumber. Python extraction packages are authoring tools only, not application dependencies.
 - `src/model.js`: versioned local storage, validated non-destructive imports, athlete-scoped merges, retained conflicts, checkpoints, optimistic stale-tab detection and edit revisions. `src/calculations.js`: pure load, progression and VDOT calculations.
+- `src/drafts.js`: forward-only field propagation, draft autosave/Undo and atomic Finish Workout. Drafts stay separate from finalized records. See [compact logging](docs/COMPACT_LOGGING.md).
 - `src/app.js`: native browser module rendering Today, Plan, Progress and History. No runtime dependencies, external fonts, analytics or network data transmission.
 - `legacy.html` and existing `athletic-lifts.js`: original 28-week archive; old local records remain readable without writes to the legacy keys. `kitchen.html`: preserved nutrition content, recolored.
 
@@ -32,7 +33,7 @@ See [phone migration instructions](docs/MIGRATION.md), [program integrity report
 
 ## Calculation boundaries
 
-Eligible primary barbell estimates now use the exact supplied RTS chart with actual recorded RPE, including half points and effort ranges. Upcoming reps and the RPE cap determine the suggested load; equipment rounding is shown as a range. Missing or out-of-chart effort produces an RPE-guided ramp. Unadjusted Epley percentages remain clearly labeled fallback references. See [calculation details](docs/LOADING_METHOD.md). Back-offs still use actual saved top loads.
+Eligible primary barbell estimates now use the exact supplied RTS chart with actual recorded RPE, including half points and effort ranges. Upcoming reps and the RPE cap determine the suggested load; equipment rounding is shown as a range. Missing or out-of-chart effort produces an RPE-guided ramp. Unadjusted Epley percentages remain clearly labeled fallback references. See [calculation details](docs/LOADING_METHOD.md). Back-offs use actual top loads; previews from draft entries are labeled until finalized.
 
 Accessory increases require every prescribed set/side, matching variant and units, consistent load, upper-end reps, and explicitly recorded RIR meeting the target. Warmups are displayed separately. Device resistance, sleds, carries and power cleans receive no e1RM. An imported partial performance is not an entire completed workout.
 

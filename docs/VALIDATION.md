@@ -4,7 +4,7 @@ All application screenshots and browser-test entries are **synthetic test data**
 
 | Check | Actual result |
 |---|---|
-| `npm test` | 47 tests passed; 0 failed, skipped or cancelled |
+| `npm test` | 60 tests passed; 0 failed, skipped or cancelled |
 | `npm run test:browser` | All 96 active athlete sessions rendered and saved a working set; every prescribed working-set editor/side present |
 | PDF reconciliation | 566 rows / 2,830 cells / all 48 daily pages matched independently; six overview pages retained |
 | Private original exports + combined + baseline | Athlete-scoped merge equals combined; legacy history unchanged; idempotence; partial records preserved; estimates excluded from completed sets; v3 roundtrip lossless |
@@ -48,3 +48,9 @@ Gold buttons use deep-navy text, 9.78:1. All exceed 4.5:1 for normal text. Brass
 - Browser local storage remains device-specific; export/import is the supported transfer mechanism. Quota and stale-tab failures are tested in the storage layer; real device eviction cannot be prevented by the app.
 
 Review update: CI is pinned to Ubuntu 24.04 for Playwright 1.58.2. RTS lookup, uncertainty, practical rounding, missing-effort and lift-isolation regressions are included. See [loading method](LOADING_METHOD.md). Remote CI results are reported separately after the run.
+
+## Compact table logging
+
+The refined interface uses one five-column table and one advanced-details section per exercise, with no per-set forms or Save buttons. Automated browser assertions require 44–48 px set rows, a 200–250 px three-set logging area, and no horizontal page overflow at 320 px. Measured at 390 px: rows 48 px; logging area 222 px. Alternate effort and per-set details are edited through the exercise's single set selector.
+
+Regression coverage includes independent forward propagation, top/back-off and left/right boundaries, finalized-record protection, Undo after reload, draft backup/import through the UI, atomic Finish Workout, snapshot freezing, stale imported history, failed writes, and athlete isolation. All 47 earlier unit tests remain included. The full browser suite finalizes one synthetic working result in each of the 96 active sessions, explicitly skipping other required rows; the unit suite separately finalizes every required working set/side across all sessions. Private migration fixtures remain outside the repository. See [logging behavior](COMPACT_LOGGING.md).
