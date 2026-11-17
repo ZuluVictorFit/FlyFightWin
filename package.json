@@ -1,0 +1,15 @@
+{
+  "name": "flyfightwin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:browser": "node tests/browser.js",
+    "serve": "python3 -m http.server 8000 --bind 0.0.0.0"
+  },
+  "devDependencies": {
+    "axe-core": "4.10.3",
+    "playwright": "1.58.2",
+    "prettier": "3.5.3"
+  }
+}

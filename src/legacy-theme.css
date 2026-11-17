@@ -1,0 +1,32 @@
+:root,
+body {
+  --bg: #102b3d;
+  --panel: #19364a;
+  --panel-2: #0c2232;
+  --ink: #f8f3e6;
+  --ink-2: #c4d2da;
+  --ink-3: #c4d2da;
+  --line: #3b596c;
+  --z: #dfc780;
+  --h: #e7cd87;
+  color: #f8f3e6;
+  background: #102b3d;
+}
+a {
+  color: #dfc780;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid #e7cd87;
+}
+:root,
+body {
+  --zack: #dfc780;
+  --zack-soft: #24465a;
+  --hannah: #e7cd87;
+  --hannah-soft: #24465a;
+  --line-2: #3b596c;
+  --focus: #e7cd87;
+  --radial-blue: #dfc780;
+}
