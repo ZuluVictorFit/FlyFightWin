@@ -153,12 +153,16 @@ export async function compactBrowser(browser, base) {
         .evaluateAll((xs) => xs.map((x) => x.value)),
       ["4", "4", "4", "3", "4", "3"],
     );
+    // A range-based prescription now starts at the programmed minimum.
+    // Explicitly clearing a checked row must still prevent finalization.
+    await form(2).locator('[name="reps"]').fill("");
     await page.locator("#completeSession").click();
     assert.match(
       await page.locator("#notice").innerText(),
       /Record reps, time or distance/,
     );
     assert.equal((await store()).records.length, 0);
+    await form(2).locator('[name="reps"]').fill("6");
     assert.ok((await store()).drafts);
 
     // A real backup UI round trip includes drafts without treating them as performance.
