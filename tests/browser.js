@@ -468,7 +468,8 @@ try {
     assert.equal(await card.locator("h2").innerText(), "VDOT 44.8", `week ${w}`);
     assert.doesNotMatch(await pacePage.locator("#content").innerText(), /VDOT 47\.2/, `week ${w}`);
     const paces = await pacePage.locator(".compact-target").allInnerTexts();
-    assert.ok(paces.length > 0, `week ${w} has live running paces`);
+    if (w < 8) assert.ok(paces.length > 0, `week ${w} has live running paces`);
+    // Week 8 is the two-mile time trial and has no prescribed interval pace.
   }
   assert.deepEqual(
     await pacePage.evaluate(() => JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records),
