@@ -2,7 +2,7 @@ import * as R from "./running.js";
 import * as D from "./drafts.js";
 import { rtsEstimate } from "./rts.js";
 import * as M from "./model.js";
-import * as C from "./calculations.js";
+import * as C from "./calculations.js?v=vdot-bands-20261118";
 import { validateProgram, effectiveSession } from "./program.js";
 const $ = (s) => document.querySelector(s),
   esc = (v) =>
