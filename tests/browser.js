@@ -533,10 +533,7 @@ try {
     originalPaceRecords,
   );
   await pacePage.locator('[data-athlete="h"]').click();
-  assert.match(
-    await pacePage.locator("#content").innerText(),
-    /VDOT 25\\.6/,
-  );
+  assert.ok((await pacePage.locator("#content").innerText()).includes("VDOT 25.6"));
   await paceContext.close();
   console.log(
     "PASS current 44.8 VDOT on all Zack Tuesdays despite historical 47.2 snapshots; records and Hannah unchanged",
