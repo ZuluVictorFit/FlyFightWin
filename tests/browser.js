@@ -541,6 +541,43 @@ try {
   console.log(
     "PASS current 44.8 VDOT on all Zack Tuesdays despite historical 47.2 snapshots; records and Hannah unchanged",
   );
+  // Current training bands appear per mile for both athlete baselines; they
+  // must not rewrite any historical test record or completed running interval.
+  const paceBandContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const paceBandPage = await paceBandContext.newPage();
+  await paceBandPage.goto(base);
+  await paceBandPage.waitForSelector(".exercise");
+  await paceBandPage.evaluate(() => {
+    const key = "flyfightwin.log.v3";
+    const d = JSON.parse(localStorage.getItem(key));
+    d.records.push({
+      id: "legacy:h:tt:4", type: "legacy", athlete: "h",
+      category: "tt", key: "4", value: { v: 26.43419535242783, s: 614 }
+    });
+    d.settings["pace:h"] = "legacy:h:tt:4";
+    d.settings["pace:z"] = "program";
+    localStorage.setItem(key, JSON.stringify(d));
+  });
+  await paceBandPage.reload();
+  await paceBandPage.waitForSelector(".exercise");
+  await paceBandPage.locator('[data-day="Tuesday"]').click();
+  const zpace = await paceBandPage.locator("#content").innerText();
+  assert.match(zpace, /VDOT 44\\.8/);
+  assert.match(zpace, /E 9:00–9:32\\/mi/);
+  assert.match(zpace, /T 7:15–7:35\\/mi/);
+  await paceBandPage.locator('[data-athlete="h"]').click();
+  const hpace = await paceBandPage.locator("#content").innerText();
+  assert.match(hpace, /VDOT 26\\.4/);
+  assert.match(hpace, /E 13:12–14:22\\/mi/);
+  assert.match(hpace, /T 11:07–11:27\\/mi/);
+  assert.equal(
+    await paceBandPage.evaluate(() =>
+      JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records
+        .filter((r) => r.type === "legacy").length
+    ), 1,
+  );
+  await paceBandContext.close();
+  console.log("PASS current Daniels-calibrated pace bands for both athletes");
   assert.deepEqual(errors, []);
   console.log("PASS no application JavaScript errors");
 } finally {
