@@ -292,7 +292,7 @@ test("Zack's approved 13:43 two-mile result supersedes the old pace reference sa
   assert.ok(Math.abs(expectedVdot - 44.78627792342048) < 1e-10);
   assert.ok(Math.abs(program.paceDefaults.z.value - expectedVdot) < 1e-10);
   assert.equal(C.activeReference(M.fresh(), "z", program.paceDefaults).value, expectedVdot);
-  assert.equal(program.paceDefaults.h.value, null);
+  assert.ok(Math.abs(program.paceDefaults.h.value - C.vdot(3218.69, 1320)) < 1e-10);
   for (const w of [1, 2]) {
     const interval = s(w, "Tuesday", "z").exercises.find((e) => e.group === "WORK");
     assert.equal(interval.intensity, "T (current VDOT)");
@@ -307,7 +307,10 @@ test("Zack's approved 13:43 two-mile result supersedes the old pace reference sa
   assert.equal(updated.settings["pace:z"], "program");
   assert.equal(updated.settings["pace:z:previousChoice"], "legacy:z:tt:4");
   assert.equal(updated.settings["pace:z:referenceRevision"], program.paceDefaults.z.referenceRevision);
-  assert.equal(updated.settings["pace:h"], "untouched-hannah-reference");
+  assert.equal(updated.settings["pace:h"], "");
+  assert.equal(updated.settings["pace:h:previousChoice"], "untouched-hannah-reference");
+  assert.equal(updated.settings["pace:h:referenceRevision"], program.paceDefaults.h.referenceRevision);
+  assert.equal(C.activeReference(updated, "h", program.paceDefaults).value, program.paceDefaults.h.value);
   assert.equal(C.activeReference(updated, "z", program.paceDefaults).value, expectedVdot);
   assert.equal(M.canonical(updated.records), before);
   assert.equal(M.adoptPaceRevision(updated, program.paceDefaults), updated);
@@ -315,6 +318,37 @@ test("Zack's approved 13:43 two-mile result supersedes the old pace reference sa
   manual.settings["pace:z"] = "legacy:z:tt:4";
   assert.equal(C.activeReference(manual, "z", program.paceDefaults).value, 47.2);
   assert.equal(M.adoptPaceRevision(manual, program.paceDefaults), manual);
+  M.validateStore(updated);
+});
+test("Hannah's approved 22:00 two-mile result becomes her default without inventing completed work", () => {
+  const expected = C.vdot(3218.69, 22 * 60);
+  assert.ok(Math.abs(expected - 25.64330809067915) < 1e-10);
+  assert.ok(Math.abs(program.paceDefaults.h.value - expected) < 1e-10);
+  const original = M.importData(M.fresh(), legacy({}, {
+    tt: { 4: { v: 26.43419535242783, s: 614 } },
+  })).data;
+  original.settings["pace:z:referenceRevision"] = program.paceDefaults.z.referenceRevision;
+  original.settings["pace:h"] = "legacy:h:tt:4";
+  const recordSnapshot = M.canonical(original.records);
+  const updated = M.adoptPaceRevision(original, program.paceDefaults);
+  assert.equal(updated.settings["pace:h"], "");
+  assert.equal(updated.settings["pace:h:previousChoice"], "legacy:h:tt:4");
+  assert.equal(updated.settings["pace:h:referenceRevision"], program.paceDefaults.h.referenceRevision);
+  assert.equal(C.activeReference(updated, "h", program.paceDefaults).value, expected);
+  assert.equal(M.canonical(updated.records), recordSnapshot);
+  assert.equal(M.adoptPaceRevision(updated, program.paceDefaults), updated);
+  const laterTest = M.updateRecord(updated, row({
+    id: "set:athletic-strength-8:w8-tuesday-h:work-2-mile-time-trial:0",
+    sessionId: "athletic-strength-8:w8-tuesday-h",
+    athlete: "h", exerciseId: "2-mile-time-trial",
+    variant: "2-mile-time-trial", seconds: 1260, distance: 2, distanceUnit: "mi",
+    status: "done", date: "2026-12-01"
+  }));
+  assert.equal(C.activeReference(laterTest, "h", program.paceDefaults).value, C.vdot(3218.69, 1260));
+  const repinned = M.clone(updated);
+  repinned.settings["pace:h"] = "legacy:h:tt:4";
+  assert.equal(C.activeReference(repinned, "h", program.paceDefaults).value, 26.43419535242783);
+  assert.equal(M.adoptPaceRevision(repinned, program.paceDefaults), repinned);
   M.validateStore(updated);
 });
 test("VDOT training bands use Daniels-calibrated paces for Zack and Hannah", () => {
@@ -345,7 +379,7 @@ test("VDOT training bands use Daniels-calibrated paces for Zack and Hannah", () 
 });
 test("Hannah Week 1 test updates future pace reference unless explicitly pinned", () => {
   let d = M.fresh();
-  assert.equal(C.activeReference(d, "h", program.paceDefaults).value, null);
+  assert.equal(C.activeReference(d, "h", program.paceDefaults).value, program.paceDefaults.h.value);
   d = M.updateRecord(
     d,
     row({
@@ -472,7 +506,7 @@ test("changed running variant or shortened distance does not count as a two-mile
       seconds: 1200,
     }),
   );
-  assert.equal(C.activeReference(d, "h", program.paceDefaults).value, null);
+  assert.equal(C.activeReference(d, "h", program.paceDefaults).value, program.paceDefaults.h.value);
   d = M.updateRecord(
     d,
     row({
@@ -484,5 +518,5 @@ test("changed running variant or shortened distance does not count as a two-mile
       distanceUnit: "mi",
     }),
   );
-  assert.equal(C.activeReference(d, "h", program.paceDefaults).value, null);
+  assert.equal(C.activeReference(d, "h", program.paceDefaults).value, program.paceDefaults.h.value);
 });
