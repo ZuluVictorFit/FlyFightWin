@@ -2,7 +2,7 @@ import * as R from "./running.js";
 import * as D from "./drafts.js";
 import { rtsEstimate } from "./rts.js";
 import * as M from "./model.js";
-import * as C from "./calculations.js";
+import * as C from "./calculations.js?v=vdot-bands-20261118";
 import { validateProgram, effectiveSession } from "./program.js";
 const $ = (s) => document.querySelector(s),
   esc = (v) =>
@@ -119,11 +119,20 @@ function workout() {
  ${s.exercises.some((e) => e.kind === "run" && !e.warmup) ? paceCard() : ""}
  ${s.exercises.map((e) => exercise(s, e)).join("")}<p class="provenance">Approved program · ${esc(s.approvalSource || `PDF page ${s.sourcePage}`)} · ${esc(store.records.find((r) => r.type === "session" && r.sessionId === s.id)?.programVersion || program.id)}</p>`;
 }
+// Visible training targets are practical per-mile bands, not purported exact
+// reproductions of V.O2's proprietary contemporary pace tables.
+function paceLabel(v, type) {
+  const band = C.paceBand(v, type);
+  if (!band) return "—";
+  return band[0] === band[1]
+    ? C.clock(band[0])
+    : `${C.clock(band[0])}–${C.clock(band[1])}`;
+}
 function paceCard() {
   // The Today card is a CURRENT training target, not an archival snapshot.
   // Performed sets retain their original paceReference in History.
   const ref = C.activeReference(store, athlete, program.paceDefaults);
-  return `<section class="card"><p class="eyebrow">Active pace reference</p><h2>${ref.value ? `VDOT ${ref.value.toFixed(1)}` : "Baseline pending"}</h2><p class="hint">${esc(ref.source)}</p>${ref.value ? `<div class="meta">${["E", "T", "I", "R", "2M"].map((t) => `<span>${t} ${C.clock(C.pace(ref.value, t))}/mi</span>`).join("")}</div>` : ""}<p class="hint">Effort and the prescribed recovery govern. Nonmaximal runs never update VDOT. Choose or pin a reference in Progress.</p></section>`;
+  return `<section class="card"><p class="eyebrow">Active pace reference</p><h2>${ref.value ? `VDOT ${ref.value.toFixed(1)}` : "Baseline pending"}</h2><p class="hint">${esc(ref.source)}</p>${ref.value ? `<div class="meta">${["E", "T", "I", "R", "2M"].map((t) => `<span>${t} ${paceLabel(ref.value, t)}/mi</span>`).join("")}</div>` : ""}<p class="hint">These are practical coaching pace bands, not exact V.O2 website values. Easy pace should stay conversational; terrain, heat and fatigue take priority. Nonmaximal runs never update VDOT. Choose or pin a reference in Progress.</p></section>`;
 }
 function effortField(e) {
   return e.rir != null ? "rir" : "rpe";
@@ -167,7 +176,7 @@ function exercise(s, e) {
     <header class="compact-heading"><h2><span class="exercise-group">${esc(e.group)}</span>${esc(e.name)}${e.optional ? '<small class="optional-label">Optional</small>' : ""}</h2>
       <p class="prescription">${e.top || /\d+\s*x\s*\d/.test(e.prescription) ? "" : `${e.sets} × `}${esc(e.prescription)}</p>
       <p class="intensity">${esc(displayIntensity)} · Rest ${esc(e.rest)}</p>${run && R.planTiming(e) ? `<p class="intensity">${esc(R.planTiming(e))}</p>` : ""}</header>
-    ${paceType && paceRef.value ? `<p class="compact-target">${paceType} · ${C.clock(C.pace(paceRef.value, paceType))}/mi</p>` : ""}
+    ${paceType && paceRef.value ? `<p class="compact-target">${paceType} · ${paceLabel(paceRef.value, paceType)}/mi</p>` : ""}
     ${e.device ? '<p class="warning">Verify mode, firmware and anchor. Record device settings; simulated yards are not physical sled distances.</p>' : ""}
     ${/heavy sandbag front/.test(e.name) ? '<p class="warning">Confirm an appropriate heavy front-carry implement. Do not silently substitute a light bag or another implement.</p>' : ""}
     ${/Leg press/.test(e.name) && athlete === "h" ? '<p class="hint">Equipment may be unavailable at home. This finisher remains optional.</p>' : ""}

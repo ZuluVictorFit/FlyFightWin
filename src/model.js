@@ -26,13 +26,19 @@ export const fresh = () => ({
 // A coach-approved baseline revision supersedes any older pace pin once.
 // Preserve the old choice in athlete-scoped settings; subsequent manual choices win.
 export function adoptPaceRevision(data, policies) {
-  const revision = policies?.z?.referenceRevision;
-  if (!revision || data.settings["pace:z:referenceRevision"] === revision)
-    return data;
-  const next = clone(data);
-  next.settings["pace:z:previousChoice"] = data.settings["pace:z"] || "";
-  next.settings["pace:z"] = "program";
-  next.settings["pace:z:referenceRevision"] = revision;
+  let next = data;
+  for (const athlete of ["z", "h"]) {
+    const revision = policies?.[athlete]?.referenceRevision;
+    const key = `pace:${athlete}`;
+    if (!revision || data.settings[`${key}:referenceRevision`] === revision)
+      continue;
+    if (next === data) next = clone(data);
+    next.settings[`${key}:previousChoice`] = data.settings[key] || "";
+    // An automatic-test athlete continues to pick up newly completed 2-mile
+    // results; a fixed-reference athlete explicitly selects the new baseline.
+    next.settings[key] = policies[athlete].autoNewTests ? "" : "program";
+    next.settings[`${key}:referenceRevision`] = revision;
+  }
   return next;
 }
 
