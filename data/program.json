@@ -12,9 +12,10 @@
       "referenceRevision": "z-two-mile-baseline-2026-11"
     },
     "h": {
-      "value": null,
-      "source": "Awaiting the approved block two-mile test. No result has been invented.",
-      "autoNewTests": true
+      "value": 25.64330809067915,
+      "source": "Coach-reported two-mile result: 22:00; VDOT 25.64 (test date not recorded).",
+      "autoNewTests": true,
+      "referenceRevision": "h-two-mile-baseline-2026-11"
     }
   },
   "sourceSha256": "7002aa857cedcc9ae05daaeb998b4e3e444c259af0ee51ec359f93b9f2e74cc4",
