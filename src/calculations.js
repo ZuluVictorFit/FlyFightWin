@@ -178,15 +178,42 @@ export function timeFor(d, V) {
   }
   return ((lo + hi) / 2) * 60;
 }
+// Daniels/Gilbert VO2 running-cost inversion. Keep VDOT and race-equivalent
+// calculations independent of these practical training-zone guides.
+export function paceAtFraction(V, fraction) {
+  if (!(V > 0) || !(fraction > 0)) return null;
+  const v =
+    (-0.182258 + Math.sqrt(0.182258 ** 2 + 4 * 0.000104 * (4.6 + V * fraction))) /
+    (2 * 0.000104);
+  return (1609.34 / v) * 60;
+}
 export function pace(V, type) {
   if (!(V > 0)) return null;
   if (type === "2M") return timeFor(3218.69, V) / 2;
-  const f = { E: 0.7, M: 0.84, T: 0.88, I: 0.98, R: 1.05 }[type];
-  if (!f) return null;
-  const v =
-    (-0.182258 + Math.sqrt(0.182258 ** 2 + 4 * 0.000104 * (4.6 + V * f))) /
-    (2 * 0.000104);
-  return (1609.34 / v) * 60;
+  // T/M are calibrated to Daniels training-pace tables rather than a generic
+  // oxygen fraction. These are estimates; specific race preparation matters.
+  const fraction = { E: 0.675, M: 0.82, T: 0.89, I: 0.98, R: 1.05 }[type];
+  return fraction ? paceAtFraction(V, fraction) : null;
+}
+// Return a fast-to-slow per-mile corridor, never a false exact prescription.
+// Easy bands intentionally broaden for VDOT <39, reflecting V.O2's published
+// 2019 correction. At VDOT 35, E is about 10:37–11:38/mi, consistent with
+// its published illustrative 10:36–11:38. The rest are modest coaching
+// tolerances around the Daniels-derived training speeds, NOT a reproduction
+// of the current proprietary V.O2 calculator.
+export function paceBand(V, type) {
+  const center = pace(V, type);
+  if (center == null) return null;
+  if (type === "2M") return [center, center];
+  if (type === "E") {
+    const correction = Math.max(0, Math.min(1, (39 - V) / 4));
+    return [
+      paceAtFraction(V, 0.70 + 0.025 * correction),
+      paceAtFraction(V, 0.65 - 0.002 * correction),
+    ];
+  }
+  const tolerance = { M: 12, T: 10, I: 8, R: 6 }[type];
+  return tolerance == null ? [center, center] : [center - tolerance, center + tolerance];
 }
 export const clock = (seconds) =>
   seconds == null
