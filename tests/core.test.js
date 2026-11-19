@@ -317,6 +317,32 @@ test("Zack's approved 13:43 two-mile result supersedes the old pace reference sa
   assert.equal(M.adoptPaceRevision(manual, program.paceDefaults), manual);
   M.validateStore(updated);
 });
+test("VDOT training bands use Daniels-calibrated paces for Zack and Hannah", () => {
+  const z = C.vdot(3218.69, 823);
+  const h = C.vdot(1609.34, 614);
+  assert.ok(Math.abs(z - 44.78627792342048) < 1e-10);
+  assert.ok(Math.abs(h - 26.43419535242783) < 1e-10);
+  const ze = C.paceBand(z, "E"), he = C.paceBand(h, "E");
+  assert.ok(ze[0] >= 8 * 60 + 55 && ze[0] <= 9 * 60 + 5);
+  assert.ok(ze[1] >= 9 * 60 + 25 && ze[1] <= 9 * 60 + 40);
+  assert.ok(he[0] >= 13 * 60 && he[0] <= 13 * 60 + 30);
+  assert.ok(he[1] >= 14 * 60 + 10 && he[1] <= 14 * 60 + 35);
+  for (const V of [h, z, 35, 39, 45])
+    for (const k of ["E", "M", "T", "I", "R"]) {
+      const band = C.paceBand(V, k);
+      assert.ok(band[0] > 0 && band[1] >= band[0], `${V}/${k}`);
+      assert.ok(band[0] <= C.pace(V, k) && C.pace(V, k) <= band[1]);
+    }
+  const thirtyFive = C.paceBand(35, "E");
+  // V.O2 published adjusted E at VDOT 35 = 10:36–11:38. These
+  // deliberately practical coaching bands are within a few seconds.
+  assert.ok(Math.abs(thirtyFive[0] - 636) < 5);
+  assert.ok(Math.abs(thirtyFive[1] - 698) < 5);
+  // Daniels' table gives approximately 7:25/mi for VDOT 45 threshold.
+  assert.ok(Math.abs(C.pace(45, "T") - 445) < 5);
+  assert.equal(C.paceBand(z, "2M")[0], C.paceBand(z, "2M")[1]);
+  assert.equal(C.paceBand(h, "unknown"), null);
+});
 test("Hannah Week 1 test updates future pace reference unless explicitly pinned", () => {
   let d = M.fresh();
   assert.equal(C.activeReference(d, "h", program.paceDefaults).value, null);
