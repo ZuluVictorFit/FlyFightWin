@@ -563,13 +563,13 @@ try {
   await paceBandPage.locator('[data-day="Tuesday"]').click();
   const zpace = await paceBandPage.locator("#content").innerText();
   assert.match(zpace, /VDOT 44\\.8/);
-  assert.match(zpace, /E 9:00–9:32\\/mi/);
-  assert.match(zpace, /T 7:15–7:35\\/mi/);
+  assert.ok(zpace.includes("E 9:00–9:32/mi"));
+  assert.ok(zpace.includes("T 7:15–7:35/mi"));
   await paceBandPage.locator('[data-athlete="h"]').click();
   const hpace = await paceBandPage.locator("#content").innerText();
   assert.match(hpace, /VDOT 26\\.4/);
-  assert.match(hpace, /E 13:12–14:22\\/mi/);
-  assert.match(hpace, /T 11:07–11:27\\/mi/);
+  assert.ok(hpace.includes("E 13:12–14:22/mi"));
+  assert.ok(hpace.includes("T 11:07–11:27/mi"));
   assert.equal(
     await paceBandPage.evaluate(() =>
       JSON.parse(localStorage.getItem("flyfightwin.log.v3")).records
