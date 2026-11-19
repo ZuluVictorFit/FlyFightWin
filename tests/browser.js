@@ -535,7 +535,7 @@ try {
   await pacePage.locator('[data-athlete="h"]').click();
   assert.match(
     await pacePage.locator("#content").innerText(),
-    /Baseline pending/,
+    /VDOT 25\\.6/,
   );
   await paceContext.close();
   console.log(
